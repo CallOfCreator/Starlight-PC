@@ -1,14 +1,14 @@
 [package]
-name = "nuxtor"
+name = "Starlight"
 version = "1.5.0"
-description = "Starter template for Nuxt 4 and Tauri 2"
-authors = [ "NicolaSpadari" ]
+description = "Among Us mod manager"
+authors = [ "yanpla" ]
 license = "MIT"
-repository = "https://github.com/NicolaSpadari/nuxtor"
+repository = "https://github.com/yanpla/Starlight"
 edition = "2021"
 
 [lib]
-name = "nuxtor_lib"
+name = "starlight_lib"
 crate-type = [
   "staticlib",
   "cdylib",
