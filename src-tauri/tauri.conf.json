@@ -31,9 +31,9 @@
 		"beforeDevCommand": "bun run dev",
 		"devUrl": "http://localhost:3000"
 	},
-	"productName": "Nuxtor",
+	"productName": "Starlight",
 	"version": "1.5.0",
-	"identifier": "com.nicolaspadari.nuxtor",
+	"identifier": "dev.allofus.starlight",
 	"plugins": {},
 	"app": {
 		"windows": [
