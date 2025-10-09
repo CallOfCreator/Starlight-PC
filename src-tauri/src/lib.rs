@@ -36,7 +36,11 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
-            commands::paths::get_among_us_paths
+            commands::paths::get_among_us_paths,
+            commands::init::init_app,
+            commands::init::setup_base_game,
+            commands::init::get_among_us_path_from_store,
+            commands::init::update_among_us_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
