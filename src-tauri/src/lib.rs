@@ -1,6 +1,5 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 mod commands;
-mod finder;
 mod utils;
 
 use tauri::{
@@ -39,7 +38,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::paths::get_among_us_paths,
             commands::init::init_app,
-            commands::init::setup_base_game,
             commands::init::get_among_us_path_from_store,
             commands::init::update_among_us_path
         ])

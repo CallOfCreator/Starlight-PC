@@ -37,30 +37,6 @@ pub fn extract_game_version(game_path: &Path) -> Result<String, String> {
         .map_err(|e| format!("Failed to parse version string: {}", e))
 }
 
-pub fn copy_dir_recursive(source: &Path, dest: &Path) -> Result<(), String> {
-    fs::create_dir_all(dest).map_err(|e| e.to_string())?;
-
-    for entry in fs::read_dir(source).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        let file_name = entry.file_name();
-        let target = dest.join(&file_name);
-
-        if file_name.to_string_lossy().starts_with('.') {
-            continue;
-        }
-
-        if path.is_dir() {
-            copy_dir_recursive(&path, &target)?;
-        } else {
-            fs::copy(&path, &target)
-                .map_err(|e| format!("Failed to copy {}: {}", path.display(), e))?;
-        }
-    }
-
-    Ok(())
-}
-
 fn find_pattern(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())

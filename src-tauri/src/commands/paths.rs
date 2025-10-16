@@ -1,4 +1,4 @@
-use crate::finder;
+use crate::utils::finder;
 use log::info;
 
 #[tauri::command]

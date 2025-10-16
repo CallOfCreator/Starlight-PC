@@ -1,7 +1,6 @@
-use crate::{finder, utils::game::{copy_dir_recursive, extract_game_version}};
+use crate::{utils::finder::get_among_us_paths, utils::game::extract_game_version};
 use log::info;
 use serde_json::json;
-use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{Manager, Runtime};
 use tauri_plugin_store::{Store, StoreExt};
@@ -13,8 +12,6 @@ pub async fn init_app(app: tauri::AppHandle) -> Result<String, String> {
         .app_data_dir()
         .map_err(|e| format!("Failed to resolve app data dir: {}", e))?;
 
-    ensure_app_directories(&data_dir)?;
-
     let store = app
         .store("registry.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
@@ -23,10 +20,10 @@ pub async fn init_app(app: tauri::AppHandle) -> Result<String, String> {
     let (amongus_path, mut store_dirty, mut response) =
         initialize_store_if_needed(&store, &data_dir, amongus_path)?;
 
-    let (sync_dirty, sync_message) =
-        sync_base_game_cache(&store, &data_dir, amongus_path.as_deref())?;
+    let (version_dirty, sync_message) =
+        sync_game_version(&store, amongus_path.as_deref())?;
 
-    store_dirty |= sync_dirty;
+    store_dirty |= version_dirty;
 
     if store_dirty {
         store
@@ -46,14 +43,6 @@ pub async fn init_app(app: tauri::AppHandle) -> Result<String, String> {
     Ok(response)
 }
 
-fn ensure_app_directories(data_dir: &Path) -> Result<(), String> {
-    for dir in ["profiles", "global/amongus_base", "global/userdata_base"] {
-        fs::create_dir_all(data_dir.join(dir)).map_err(|e| e.to_string())?;
-    }
-
-    Ok(())
-}
-
 fn resolve_among_us_path<R: Runtime>(store: &Store<R>) -> Option<String> {
     store
         .get("amongus_path")
@@ -70,7 +59,7 @@ fn initialize_store_if_needed<R: Runtime>(
     }
 
     if path.is_none() {
-        path = finder::get_among_us_paths()
+        path = get_among_us_paths()
             .first()
             .map(|p| p.to_string_lossy().to_string());
     }
@@ -79,7 +68,7 @@ fn initialize_store_if_needed<R: Runtime>(
     store.set("profiles", json!([]));
     store.set("active_profile", json!(null));
     store.set("amongus_path", json!(path.clone()));
-    store.set("base_game_setup", json!(false));
+    store.set("game_version", json!(null));
 
     info!("Initialized app at: {}", data_dir.display());
     let response = format!("Initialized. Among Us: {:?}", path);
@@ -87,96 +76,37 @@ fn initialize_store_if_needed<R: Runtime>(
     Ok((path, true, response))
 }
 
-fn sync_base_game_cache<R: Runtime>(
+fn sync_game_version<R: Runtime>(
     store: &Store<R>,
-    data_dir: &Path,
     amongus_path: Option<&str>,
 ) -> Result<(bool, Option<String>), String> {
-    let mut store_dirty = false;
-    let mut message = None;
+    let stored_version = store
+        .get("game_version")
+        .and_then(|v| v.as_str().map(String::from));
 
-    if let Some(path) = amongus_path {
-        let source = PathBuf::from(path);
-
-        if source.exists() {
-            let version = extract_game_version(source.as_path())?;
-            let version_dir = data_dir
-                .join("global")
-                .join(format!("amongus_base/{}", version));
-
-            if !version_dir.exists() {
-                copy_dir_recursive(source.as_path(), version_dir.as_path())?;
-                info!(
-                    "Cached Among Us version {} at {}",
-                    version,
-                    version_dir.display()
-                );
-                message = Some(format!("Cached base game v{}", version));
+    let current_version = if let Some(path) = amongus_path {
+        match extract_game_version(Path::new(path)) {
+            Ok(ver) => Some(ver),
+            Err(e) => {
+                info!("Failed to extract game version: {}", e);
+                None
             }
-
-            if !store
-                .get("base_game_setup")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
-                store.set("base_game_setup", json!(true));
-                store_dirty = true;
-            }
-        } else {
-            info!(
-                "Stored Among Us path '{}' not found; skipping base game sync",
-                path
-            );
         }
+    } else {
+        None
+    };
+
+    if stored_version != current_version {
+        store.set("game_version", json!(current_version.clone()));
+        let msg = format!(
+            "Game version updated from {:?} to {:?}",
+            stored_version, current_version
+        );
+        info!("{}", msg);
+        Ok((true, Some(msg)))
+    } else {
+        Ok((false, None))
     }
-
-    Ok((store_dirty, message))
-}
-
-#[tauri::command]
-pub async fn setup_base_game(app: tauri::AppHandle) -> Result<String, String> {
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to resolve app data dir: {}", e))?;
-
-    let store = app
-        .store("registry.json")
-        .map_err(|e| format!("Failed to load store: {}", e))?;
-
-    if store
-        .get("base_game_setup")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-    {
-        return Err("Base game already set up".into());
-    }
-
-    let amongus_path = store
-        .get("amongus_path")
-        .and_then(|v| v.as_str().map(String::from))
-        .ok_or("Among Us path not found in registry")?;
-
-    let source = PathBuf::from(&amongus_path);
-    if !source.exists() {
-        return Err(format!("Among Us not found at: {}", amongus_path));
-    }
-
-    // Extract game version
-    let version = extract_game_version(source.as_path())?;
-    info!("Detected Among Us version: {}", version);
-
-    // Create versioned base directory
-    let base_dir = data_dir.join("global").join(format!("amongus_base/{}", version));
-    copy_dir_recursive(source.as_path(), base_dir.as_path())?;
-
-    store.set("base_game_setup", json!(true));
-    store
-        .save()
-        .map_err(|e| format!("Failed to save store: {}", e))?;
-
-    info!("Base game v{} copied to {}", version, base_dir.display());
-    Ok(format!("Base game v{} setup complete", version))
 }
 
 #[tauri::command]
@@ -201,7 +131,7 @@ pub fn update_among_us_path(app: tauri::AppHandle, new_path: String) -> Result<(
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
     store.set("amongus_path", json!(new_path));
-    store.set("base_game_setup", json!(false));
+    store.set("game_version", json!(null));
     store
         .save()
         .map_err(|e| format!("Failed to save store: {}", e))?;

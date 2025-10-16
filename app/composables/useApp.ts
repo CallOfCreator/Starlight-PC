@@ -20,29 +20,12 @@ export const useApp = () => {
 		};
 	};
 
-	const setupBaseGame = async () => {
-		try {
-			const message = await invoke<string>("setup_base_game");
-			console.log(message);
-			await loadStoreData();
-			return true;
-		} catch (error) {
-			console.error("Base game setup failed:", error);
-			throw error;
-		}
-	};
-
 	const initApp = async () => {
 		const message = await invoke<string>("init_app");
 		console.log(message);
 
 		store.value = await Store.load("registry.json");
 		await loadStoreData();
-
-		if (!storeData.value.base_game_setup) {
-			console.log("Base game needs setup");
-			await setupBaseGame();
-		}
 
 		return storeData.value;
 	};
@@ -60,7 +43,6 @@ export const useApp = () => {
 	return {
 		storeData,
 		initApp,
-		setupBaseGame,
 		getAmongUsPath,
 		updateAmongUsPath
 	};
