@@ -52,9 +52,6 @@ pub fn launch_among_us(app: AppHandle, profile_id: Option<String>) -> Result<(),
     validate_profile_layout(&profile_path)?;
     info!("Profile layout validated for {}", profile_path.display());
 
-    write_doorstop_config(&among_us_dir, &profile_path)?;
-    info!("doorstop_config.ini prepared in {}", among_us_dir.display());
-
     #[cfg(windows)]
     set_dll_directory(&profile_path)?;
 
@@ -174,37 +171,6 @@ fn build_doorstop_arguments(profile_dir: &Path) -> Vec<String> {
         "--doorstop-clr-runtime-coreclr-path".to_string(),
         coreclr_path.display().to_string(),
     ]
-}
-
-fn write_doorstop_config(game_dir: &Path, profile_dir: &Path) -> Result<(), String> {
-    let target_assembly = profile_dir
-        .join("BepInEx")
-        .join("core")
-        .join("BepInEx.Unity.IL2CPP.dll");
-    let coreclr_dir = profile_dir.join("dotnet");
-    let coreclr_path = coreclr_dir.join("coreclr.dll");
-
-    let contents = format!(
-        "[General]\nenabled = true\ntarget_assembly = {}\nignore_disable_switch = true\n\n[Il2Cpp]\ncoreclr_path = {}\ncorlib_dir = {}\n",
-        target_assembly.display(),
-        coreclr_path.display(),
-        coreclr_dir.display()
-    );
-
-    let cfg_path = game_dir.join("doorstop_config.ini");
-    let backup_path = game_dir.join("doorstop_config.ini.bak");
-
-    if cfg_path.exists() && !backup_path.exists() {
-        if let Err(e) = fs::rename(&cfg_path, &backup_path) {
-            return Err(format!(
-                "Failed to backup existing doorstop config {}: {e}",
-                cfg_path.display()
-            ));
-        }
-    }
-
-    fs::write(&cfg_path, contents)
-        .map_err(|e| format!("Failed to write doorstop config {}: {e}", cfg_path.display()))
 }
 
 #[cfg(windows)]

@@ -147,8 +147,8 @@ fn slugify(input: &str) -> String {
     slug
 }
 
-const BEPINEX_FILE: &str = "BepInEx-6.0.0-pre.2.zip";
-const BEPINEX_URL: &str = "https://github.com/BepInEx/BepInEx/releases/download/v6.0.0-pre.2/BepInEx-Unity.IL2CPP-win-x86-6.0.0-pre.2.zip";
+const BEPINEX_FILE: &str = "BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.738+af0cba7.zip";
+const BEPINEX_URL: &str = "https://builds.bepinex.dev/projects/bepinex_be/738/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.738%2Baf0cba7.zip";
 
 fn download_and_extract_bepinex(profile_dir: &Path) -> Result<(), String> {
     let response = reqwest::blocking::get(BEPINEX_URL)
