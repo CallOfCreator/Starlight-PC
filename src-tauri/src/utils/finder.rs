@@ -48,7 +48,11 @@ fn find_among_us_from_registry() -> Option<PathBuf> {
     let hkcr = RegKey::predef(HKEY_CLASSES_ROOT);
 
     for key_name in ["AmongUs", "amongus"] {
-        let icon_key = hkcr.open_subkey(key_name).ok()?.open_subkey("DefaultIcon").ok()?;
+        let icon_key = hkcr
+            .open_subkey(key_name)
+            .ok()?
+            .open_subkey("DefaultIcon")
+            .ok()?;
         let raw_value: String = icon_key.get_value("").ok()?;
         let directory = parse_registry_icon_value(&raw_value)?;
 
@@ -88,14 +92,20 @@ pub fn is_among_us_running() -> bool {
     #[cfg(target_os = "windows")]
     {
         let system = System::new_all();
-        [AMONG_US_EXE, "Among Us"]
-            .iter()
-            .any(|name| system.processes_by_exact_name(OsStr::new(name)).next().is_some())
+        [AMONG_US_EXE, "Among Us"].iter().any(|name| {
+            system
+                .processes_by_exact_name(OsStr::new(name))
+                .next()
+                .is_some()
+        })
     }
 
     #[cfg(target_family = "unix")]
     {
-        use libproc::{proc_pid::name, processes::{self, ProcFilter}};
+        use libproc::{
+            proc_pid::name,
+            processes::{self, ProcFilter},
+        };
 
         processes::pids_by_type(ProcFilter::All)
             .ok()

@@ -17,8 +17,7 @@ pub async fn init_app(app: tauri::AppHandle) -> Result<String, String> {
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
     let amongus_path = resolve_among_us_path(&store);
-    let (amongus_path, mut response) =
-        initialize_store_if_needed(&store, &data_dir, amongus_path)?;
+    let (amongus_path, mut response) = initialize_store_if_needed(&store, &data_dir, amongus_path)?;
 
     let sync_message = sync_game_version(&store, amongus_path.as_deref())?;
 

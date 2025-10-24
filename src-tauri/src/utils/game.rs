@@ -2,9 +2,7 @@ use std::fs;
 use std::path::Path;
 
 pub fn extract_game_version(game_path: &Path) -> Result<String, String> {
-    let file_path = game_path
-        .join("Among Us_Data")
-        .join("globalgamemanagers");
+    let file_path = game_path.join("Among Us_Data").join("globalgamemanagers");
 
     if !file_path.exists() {
         return Err(format!(
@@ -33,8 +31,7 @@ pub fn extract_game_version(game_path: &Path) -> Result<String, String> {
         .copied()
         .collect();
 
-    String::from_utf8(version_bytes)
-        .map_err(|e| format!("Failed to parse version string: {}", e))
+    String::from_utf8(version_bytes).map_err(|e| format!("Failed to parse version string: {}", e))
 }
 
 fn find_pattern(haystack: &[u8], needle: &[u8]) -> Option<usize> {

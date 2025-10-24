@@ -34,7 +34,10 @@ pub fn create_profile(app: tauri::AppHandle, name: String) -> Result<ProfileEntr
 
     let mut profiles = load_profiles(&store)?;
 
-    if profiles.iter().any(|profile| profile.name.eq_ignore_ascii_case(trimmed)) {
+    if profiles
+        .iter()
+        .any(|profile| profile.name.eq_ignore_ascii_case(trimmed))
+    {
         return Err(format!("Profile '{}' already exists", trimmed));
     }
 
@@ -52,8 +55,7 @@ pub fn create_profile(app: tauri::AppHandle, name: String) -> Result<ProfileEntr
 
     let profile_dir = profiles_dir.join(&identifier);
 
-    app
-        .fs_scope()
+    app.fs_scope()
         .allow_directory(&profile_dir, true)
         .map_err(|e| format!("Failed to update FS scope: {}", e))?;
 
@@ -75,7 +77,8 @@ pub fn create_profile(app: tauri::AppHandle, name: String) -> Result<ProfileEntr
     profiles.push(profile.clone());
     store.set(
         "profiles",
-        serde_json::to_value(&profiles).map_err(|e| format!("Failed to serialize profiles: {}", e))?,
+        serde_json::to_value(&profiles)
+            .map_err(|e| format!("Failed to serialize profiles: {}", e))?,
     );
 
     if should_set_active_profile(&store) {
@@ -97,8 +100,7 @@ fn ensure_profiles_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf,
 
     let profiles_dir = base_dir.join("profiles");
 
-    app
-        .fs_scope()
+    app.fs_scope()
         .allow_directory(&profiles_dir, true)
         .map_err(|e| format!("Failed to update FS scope: {}", e))?;
 
@@ -166,8 +168,8 @@ fn download_and_extract_bepinex(profile_dir: &Path) -> Result<(), String> {
         .map_err(|e| format!("Failed to read {BEPINEX_FILE}: {e}"))?;
 
     let reader = Cursor::new(bytes);
-    let mut archive = ZipArchive::new(reader)
-        .map_err(|e| format!("Failed to open {BEPINEX_FILE}: {e}"))?;
+    let mut archive =
+        ZipArchive::new(reader).map_err(|e| format!("Failed to open {BEPINEX_FILE}: {e}"))?;
 
     for i in 0..archive.len() {
         let mut entry = archive
@@ -202,8 +204,9 @@ fn download_and_extract_bepinex(profile_dir: &Path) -> Result<(), String> {
             use std::os::unix::fs::PermissionsExt;
             if let Some(mode) = entry.unix_mode() {
                 let perm = fs::Permissions::from_mode(mode);
-                fs::set_permissions(&out_path, perm)
-                    .map_err(|e| format!("Failed to set permissions on {}: {e}", out_path.display()))?;
+                fs::set_permissions(&out_path, perm).map_err(|e| {
+                    format!("Failed to set permissions on {}: {e}", out_path.display())
+                })?;
             }
         }
     }

@@ -1,5 +1,4 @@
 use std::{
-    fs,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -36,8 +35,14 @@ pub fn launch_among_us(app: AppHandle, profile_id: Option<String>) -> Result<(),
     let exe_path = among_us_dir.join("Among Us.exe");
 
     if !exe_path.exists() {
-        warn!("Launch aborted; Among Us executable missing at {}", exe_path.display());
-        return Err(format!("Among Us executable not found at {}", exe_path.display()));
+        warn!(
+            "Launch aborted; Among Us executable missing at {}",
+            exe_path.display()
+        );
+        return Err(format!(
+            "Among Us executable not found at {}",
+            exe_path.display()
+        ));
     }
 
     let profile = resolve_profile(&store, profile_id.as_deref())?;
@@ -92,7 +97,10 @@ fn resolve_among_us_dir<R: tauri::Runtime>(store: &Store<R>) -> Result<PathBuf, 
     Ok(path)
 }
 
-fn resolve_profile<R: tauri::Runtime>(store: &Store<R>, profile_id: Option<&str>) -> Result<ProfileEntry, String> {
+fn resolve_profile<R: tauri::Runtime>(
+    store: &Store<R>,
+    profile_id: Option<&str>,
+) -> Result<ProfileEntry, String> {
     let target_id = if let Some(id) = profile_id {
         let trimmed = id.trim();
         if trimmed.is_empty() {
@@ -116,9 +124,7 @@ fn resolve_profile<R: tauri::Runtime>(store: &Store<R>, profile_id: Option<&str>
         trimmed.to_string()
     };
 
-    let profiles_value = store
-        .get("profiles")
-        .unwrap_or(Value::Array(vec![]));
+    let profiles_value = store.get("profiles").unwrap_or(Value::Array(vec![]));
 
     let profiles: Vec<ProfileEntry> = serde_json::from_value(profiles_value)
         .map_err(|e| format!("Failed to parse profiles: {e}"))?;
@@ -131,7 +137,10 @@ fn resolve_profile<R: tauri::Runtime>(store: &Store<R>, profile_id: Option<&str>
 
 fn validate_profile_layout(profile_dir: &Path) -> Result<(), String> {
     if !profile_dir.is_dir() {
-        return Err(format!("Profile directory does not exist: {}", profile_dir.display()));
+        return Err(format!(
+            "Profile directory does not exist: {}",
+            profile_dir.display()
+        ));
     }
 
     let required_paths = [
@@ -146,7 +155,10 @@ fn validate_profile_layout(profile_dir: &Path) -> Result<(), String> {
 
     for path in &required_paths {
         if !path.exists() {
-            return Err(format!("Profile is missing required file or directory: {}", path.display()));
+            return Err(format!(
+                "Profile is missing required file or directory: {}",
+                path.display()
+            ));
         }
     }
 
