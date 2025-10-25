@@ -52,7 +52,7 @@
     <!-- Top Status Bar -->
     <div
         data-tauri-drag-region
-        class="app-grid-statusbar bg-card/80 h-[var(--top-bar-height)] flex relative"
+        class="app-grid-statusbar bg-card/80 h-(--top-bar-height) flex relative"
     >
         <div
             data-tauri-drag-region
@@ -100,7 +100,7 @@
 
     <!-- Left Navigation Bar -->
     <nav
-        class="app-grid-navbar bg-card/80 flex flex-col p-2 pt-0 gap-2 w-[var(--left-bar-width)] relative"
+        class="app-grid-navbar bg-card/80 flex flex-col p-2 pt-0 gap-2 w-(--left-bar-width) relative"
     >
         <NavButton to="/" isPrimary={(page) => page.url.pathname === "/"}>
             <HomeIcon class="w-6 h-6" />
@@ -134,7 +134,7 @@
     class="app-contents overflow-hidden"
     class:sidebar-enabled={isSidebarVisible}
 >
-    <div class="app-viewport flex-grow">
+    <div class="app-viewport grow">
         <div
             class="loading-indicator-container h-8 fixed z-50"
             style="top: var(--top-bar-height); left: var(--left-bar-width); width: calc(100% - var(--left-bar-width) - var(--right-bar-width));"
