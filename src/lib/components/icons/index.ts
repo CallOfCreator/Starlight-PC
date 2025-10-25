@@ -11,3 +11,5 @@ export { default as CompassIcon } from "./CompassIcon.svelte";
 export { default as LibraryIcon } from "./LibraryIcon.svelte";
 export { default as PlusIcon } from "./PlusIcon.svelte";
 export { default as ChevronRightIcon } from "./ChevronRightIcon.svelte";
+export { default as ClockIcon } from "./ClockIcon.svelte";
+export { default as DownloadIcon } from "./DownloadIcon.svelte";
