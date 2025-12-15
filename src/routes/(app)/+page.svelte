@@ -1,11 +1,6 @@
 <script lang="ts">
     import { createQuery } from "@tanstack/svelte-query";
-    import {
-        fetchNews,
-        fetchTrendingMods,
-        type NewsItem,
-        type TrendingMod,
-    } from "$lib/queries";
+    import { newsQueries, modQueries } from "$lib/queries";
     import * as Card from "$lib/components/ui/card";
     import * as Carousel from "$lib/components/ui/carousel";
     import { AspectRatio } from "$lib/components/ui/aspect-ratio";
@@ -19,17 +14,8 @@
     } from "$lib/components/icons";
     import { PUBLIC_API_URL } from "$env/static/public";
 
-    const newsQuery = createQuery(() => ({
-        queryKey: ["news"],
-        queryFn: () => fetchNews(),
-        staleTime: 1000 * 60 * 5, // 5 minutes
-    }));
-
-    const trendingModsQuery = createQuery(() => ({
-        queryKey: ["mods", "trending"],
-        queryFn: () => fetchTrendingMods(),
-        staleTime: 1000 * 60 * 5, // 5 minutes
-    }));
+    const newsQuery = createQuery(newsQueries.all);
+    const trendingModsQuery = createQuery(modQueries.trending);
 </script>
 
 <div class="p-8 overflow-y-auto h-full scrollbar-styled">
@@ -51,14 +37,14 @@
                 opts={{
                     align: "start",
                 }}
-                class="w-full maw-w-sm"
+                class="w-full maw-w-sm px-10"
             >
-                <Carousel.Content>
+                <Carousel.Content class="-ml-2">
                     {#each Array(3) as _, i (i)}
                         <Carousel.Item class="md:basis-1/2 lg:basis-1/3">
                             <Card.Root class="flex flex-col h-96">
                                 <Card.Content
-                                    class="flex-1 overflow-hidden space-y-3 pt-6"
+                                    class="flex-1 overflow-hidden space-y-3"
                                 >
                                     <Skeleton class="h-6 w-3/4" />
                                     <Skeleton class="h-4 w-full" />
@@ -70,7 +56,7 @@
                                 <Card.Footer
                                     class="text-xs flex items-end justify-between border-t border-border"
                                 >
-                                    <div class="flex flex-col gap-2 flex-1">
+                                    <div class="flex flex-col gap-0.5">
                                         <Skeleton class="h-4 w-32" />
                                         <Skeleton class="h-3 w-24" />
                                     </div>
@@ -80,6 +66,8 @@
                         </Carousel.Item>
                     {/each}
                 </Carousel.Content>
+                <Carousel.Previous class="-left-2" />
+                <Carousel.Next class="-right-2" />
             </Carousel.Root>
         {:else if newsQuery.isError}
             <div
@@ -153,33 +141,48 @@
                 <Carousel.Content class="-ml-2">
                     {#each Array(3) as _, i (i)}
                         <Carousel.Item class="md:basis-1/2 lg:basis-1/3">
-                            <Card.Root
-                                class="flex flex-col h-96 max-w-sm mx-auto"
-                            >
-                                <Card.Content
-                                    class="flex-1 flex items-center justify-center p-0 overflow-hidden"
-                                >
-                                    <Skeleton
-                                        class="w-full aspect-square max-h-full"
-                                    />
-                                </Card.Content>
-                                <Card.Footer
-                                    class="flex flex-col gap-2 border-t border-border"
-                                >
-                                    <div
-                                        class="flex items-end justify-between w-full"
-                                    >
-                                        <div class="flex flex-col gap-1 flex-1">
-                                            <Skeleton class="h-4 w-32" />
-                                            <Skeleton class="h-3 w-24" />
-                                        </div>
-                                        <Skeleton class="h-3 w-16" />
+                            <Card.Root class="overflow-hidden">
+                                <div class="flex h-40">
+                                    <!-- Thumbnail skeleton -->
+                                    <div class="w-40 h-40 shrink-0">
+                                        <Skeleton class="w-full h-full" />
                                     </div>
-                                </Card.Footer>
+
+                                    <!-- Content skeleton -->
+                                    <div
+                                        class="flex-1 p-4 flex flex-col justify-between min-w-0"
+                                    >
+                                        <div class="space-y-1">
+                                            <Skeleton class="h-5 w-3/4" />
+                                            <Skeleton class="h-4 w-1/2" />
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <div
+                                                class="flex items-center gap-2"
+                                            >
+                                                <Skeleton
+                                                    class="h-4 w-4 shrink-0"
+                                                />
+                                                <Skeleton class="h-4 w-24" />
+                                            </div>
+                                            <div
+                                                class="flex items-center gap-2"
+                                            >
+                                                <Skeleton
+                                                    class="h-4 w-4 shrink-0"
+                                                />
+                                                <Skeleton class="h-4 w-20" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </Card.Root>
                         </Carousel.Item>
                     {/each}
                 </Carousel.Content>
+                <Carousel.Previous class="-left-2" />
+                <Carousel.Next class="-right-2" />
             </Carousel.Root>
         {:else if trendingModsQuery.isError}
             <div
