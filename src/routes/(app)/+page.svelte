@@ -24,7 +24,7 @@
 
 		{#if newsQuery.isLoading}
 			<div class="grid grid-cols-1 gap-6 px-10 md:grid-cols-2 lg:grid-cols-3">
-				{#each skeletons as skeleton (skeleton)}
+				{#each skeletons, i (i)}
 					<Skeleton class="h-72 w-full rounded-xl" />
 				{/each}
 			</div>
@@ -97,7 +97,7 @@
 		{#if trendingModsQuery.isLoading}
 			<Carousel.Root opts={{ align: 'start' }} class="w-full px-10">
 				<Carousel.Content class="-ml-2">
-					{#each skeletons as skeleton (skeleton)}
+					{#each skeletons, i (i)}
 						<Carousel.Item class="basis-full lg:basis-1/2 xl:basis-1/3">
 							<Card.Root class="overflow-hidden p-0">
 								<div class="flex h-40">
