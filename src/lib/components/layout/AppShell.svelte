@@ -86,7 +86,7 @@
 		<NavButton to="/explore" isPrimary={(page) => page.url.pathname.startsWith('/explore')}>
 			<Compass class="h-6 w-6" />
 		</NavButton>
-		<NavButton to="/library">
+		<NavButton to="/library" isPrimary={(page) => page.url.pathname.startsWith('/library')}>
 			<Library class="h-6 w-6" />
 		</NavButton>
 		<div class="mx-auto my-2 h-px w-6 bg-accent"></div>

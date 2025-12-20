@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
 	import { ModeWatcher } from 'mode-watcher';
+	import AppShell from '$lib/components/layout/AppShell.svelte';
 
 	const queryClient = new QueryClient({
 		defaultOptions: {
@@ -18,5 +19,7 @@
 
 <ModeWatcher />
 <QueryClientProvider client={queryClient}>
-	{@render children?.()}
+	<AppShell>
+		{@render children()}
+	</AppShell>
 </QueryClientProvider>

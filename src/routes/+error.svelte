@@ -1,106 +1,91 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { TitlebarButtons } from '$lib/components/ui/titlebar-buttons';
-	import { default as StarlightIcon } from '$lib/assets/starlight.svg?component';
-	import { ArrowLeft, ArrowRight } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { browser } from '$app/environment';
+	import { page } from '$app/state';
+	import { House, MoveLeft, RefreshCcw, CircleAlert } from '@lucide/svelte';
 
-	// Get error status safely
-	const errorStatus = $derived(($page.status as number) || 500);
-	const errorMessage = $derived(
-		$page.error?.message || 'An unexpected error occurred. Please try again later.'
-	);
+	// Svelte 5 reactive derivations for the error details
+	const status = $derived(page.status);
+	const message = $derived(page.error?.message ?? 'An unexpected error occurred');
 
-	const isTauri =
-		browser &&
-		typeof (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
-			'undefined';
+	const is404 = $derived(status === 404);
+
+	function handleRefresh() {
+		window.location.reload();
+	}
 </script>
 
-<div class="error-layout">
-	<!-- Simple Titlebar -->
+<svelte:head>
+	<title>{status} - {is404 ? 'Page Not Found' : 'Error'}</title>
+</svelte:head>
+
+<div
+	class="relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center overflow-hidden p-8"
+>
+	<!-- Subtle Background Pattern -->
 	<div
-		data-tauri-drag-region
-		class="titlebar flex h-12 items-center border-b border-border bg-card"
-	>
-		<div data-tauri-drag-region class="flex items-center gap-2 p-3">
-			<StarlightIcon class="pointer-events-none h-5 w-5 text-foreground" />
-			<div data-tauri-drag-region-exclude class="ml-3 flex items-center gap-1">
-				<Button variant="navigation" aria-label="Go back" onclick={() => history.back()}>
-					<ArrowLeft />
-				</Button>
-				<Button variant="navigation" aria-label="Go forward" onclick={() => history.forward()}>
-					<ArrowRight />
-				</Button>
+		class="absolute inset-0 -z-10 h-full w-full bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-zinc-950 dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)]"
+	></div>
+
+	<div class="mx-auto flex max-w-[500px] flex-col items-center text-center">
+		<!-- Error Icon / Code -->
+		<div class="relative mb-8">
+			<div class="absolute -inset-4 rounded-full bg-primary/10 blur-2xl"></div>
+			<div
+				class="relative flex h-32 w-32 items-center justify-center rounded-full border bg-background shadow-sm"
+			>
+				{#if is404}
+					<span class="text-5xl font-bold tracking-tighter text-primary">404</span>
+				{:else}
+					<CircleAlert class="h-16 w-16 text-destructive" />
+				{/if}
 			</div>
 		</div>
-		{#if isTauri}
-			<section data-tauri-drag-region class="relative z-10 ml-auto flex items-center">
-				<div class="mr-3 flex"></div>
-				<TitlebarButtons />
-			</section>
+
+		<!-- Text Content -->
+		<div class="space-y-4">
+			<h1 class="text-4xl font-extrabold tracking-tight lg:text-5xl">
+				{is404 ? "We've lost this page" : 'Something went wrong'}
+			</h1>
+			<p class="text-xl text-muted-foreground">
+				{#if is404}
+					Sorry, the page you are looking for doesn't exist or has been moved.
+				{:else}
+					{message}
+				{/if}
+			</p>
+		</div>
+
+		<!-- Action Buttons -->
+		<div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+			<Button variant="outline" size="lg" onclick={() => history.back()} class="gap-2">
+				<MoveLeft class="h-4 w-4" />
+				Go Back
+			</Button>
+
+			{#if !is404}
+				<Button variant="secondary" size="lg" onclick={handleRefresh} class="gap-2">
+					<RefreshCcw class="h-4 w-4" />
+					Try Again
+				</Button>
+			{/if}
+
+			<Button size="lg" href="/" class="gap-2">
+				<House class="h-4 w-4" />
+				Back to Home
+			</Button>
+		</div>
+
+		<!-- Technical Details (Optional/Debug) -->
+		{#if !is404}
+			<div class="mt-12 w-full rounded-lg border bg-muted/50 p-4 text-left">
+				<p class="mb-2 font-mono text-xs font-bold tracking-wider text-muted-foreground uppercase">
+					Error Reference
+				</p>
+				<code class="block overflow-x-auto font-mono text-sm">
+					Status: {status}<br />
+					Timestamp: {new Date().toISOString()}
+				</code>
+			</div>
 		{/if}
 	</div>
-
-	<!-- Error Content -->
-	<div class="error-content flex items-center justify-center p-8">
-		<div class="error-card w-full max-w-2xl rounded-lg border border-border bg-card p-8 shadow-lg">
-			<div class="mb-6 text-center">
-				<h1 class="mb-2 text-6xl font-bold text-destructive">
-					{errorStatus}
-				</h1>
-				<h2 class="mb-4 text-2xl font-semibold text-foreground">
-					{errorStatus === 404 ? 'Page Not Found' : 'Oops! Something went wrong'}
-				</h2>
-			</div>
-
-			<div class="mb-6 text-center">
-				<p class="text-base text-muted-foreground">
-					{errorMessage}
-				</p>
-			</div>
-
-			{#if errorStatus === 404}
-				<div class="text-center">
-					<Button href="/" variant="default" size="default">Go back home</Button>
-				</div>
-			{:else}
-				<div class="flex justify-center gap-3">
-					<Button variant="outline" size="default" onclick={() => window.history.back()}>
-						Go back
-					</Button>
-					<Button href="/" variant="default" size="default">Go home</Button>
-				</div>
-			{/if}
-		</div>
-	</div>
 </div>
-
-<style>
-	.error-layout {
-		height: 100vh;
-		width: 100vw;
-		display: flex;
-		flex-direction: column;
-		background-color: var(--background);
-		overflow: hidden;
-	}
-
-	.titlebar {
-		flex-shrink: 0;
-	}
-
-	.error-content {
-		flex: 1;
-		overflow-y: auto;
-	}
-
-	:global([data-tauri-drag-region]) {
-		-webkit-app-region: drag;
-	}
-
-	:global([data-tauri-drag-region-exclude]) {
-		-webkit-app-region: no-drag;
-	}
-</style>
