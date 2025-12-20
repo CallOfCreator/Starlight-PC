@@ -7,7 +7,8 @@
 	import { setContext } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { default as StarlightIcon } from '$lib/assets/starlight.svg?component';
-	import { ArrowLeft, ArrowRight, Settings, Compass, House, Library, Plus } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, Settings, Compass, House, Plus } from '@jis3r/icons';
+	import { Library } from '@lucide/svelte';
 	import StarBackground from '$lib/components/StarBackground.svelte';
 
 	// Custom labels for breadcrumbs

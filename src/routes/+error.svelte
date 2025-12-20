@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { page } from '$app/state';
-	import { House, MoveLeft, RefreshCcw, CircleAlert } from '@lucide/svelte';
+	import { House, MoveLeft, RefreshCcw, CircleAlert } from '@jis3r/icons';
 
-	// Svelte 5 reactive derivations for the error details
 	const status = $derived(page.status);
 	const message = $derived(page.error?.message ?? 'An unexpected error occurred');
 
@@ -23,7 +22,7 @@
 >
 	<!-- Subtle Background Pattern -->
 	<div
-		class="absolute inset-0 -z-10 h-full w-full bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-zinc-950 dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)]"
+		class="absolute inset-0 -z-10 h-full w-full bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-size-[16px_16px] dark:bg-zinc-950 dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)]"
 	></div>
 
 	<div class="mx-auto flex max-w-[500px] flex-col items-center text-center">
