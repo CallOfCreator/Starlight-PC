@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
-	import { newsQueries, modQueries, NewsItem } from '$lib/queries';
+	import { newsQueries } from '$lib/features/news/queries';
+	import { modQueries } from '$lib/features/mods/queries';
+	import type { Post } from '$lib/features/news/schema';
 	import * as Carousel from '$lib/components/ui/carousel';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Card from '$lib/components/ui/card';
@@ -13,26 +15,26 @@
 	const newsQuery = createQuery(newsQueries.all);
 	const trendingModsQuery = createQuery(modQueries.trending);
 
-	let selectedNews = $state<NewsItem | null>(null);
+	let selectedPost = $state<Post | null>(null);
 
-	function toggleNews(item: NewsItem) {
-		if (selectedNews?.id === item.id) {
-			selectedNews = null;
+	function toggleNews(item: Post) {
+		if (selectedPost?.id === item.id) {
+			selectedPost = null;
 		} else {
-			selectedNews = item;
+			selectedPost = item;
 		}
 	}
 
 	$effect(() => {
-		useSidebar(selectedNews ? NewsDetailSidebar : null);
+		useSidebar(selectedPost ? NewsDetailSidebar : null);
 	});
 
 	const skeletons = Array.from({ length: 3 });
 </script>
 
 {#snippet NewsDetailSidebar()}
-	{#if selectedNews}
-		<NewsDetail news={selectedNews} onclose={() => (selectedNews = null)} />
+	{#if selectedPost}
+		<NewsDetail post={selectedPost} onclose={() => (selectedPost = null)} />
 	{/if}
 {/snippet}
 
@@ -53,12 +55,12 @@
 		{:else if newsQuery.isSuccess}
 			<Carousel.Root opts={{ align: 'start' }} class="w-full px-10">
 				<Carousel.Content class="-ml-4">
-					{#each newsQuery.data as newsItem (newsItem.id)}
+					{#each newsQuery.data as post (post.id)}
 						<Carousel.Item class="pl-4 @lg:basis-1/2 @2xl:basis-1/3">
 							<NewsCard
-								{newsItem}
-								isSelected={selectedNews?.id === newsItem.id}
-								onclick={() => toggleNews(newsItem)}
+								{post}
+								isSelected={selectedPost?.id === post.id}
+								onclick={() => toggleNews(post)}
 							/>
 						</Carousel.Item>
 					{/each}

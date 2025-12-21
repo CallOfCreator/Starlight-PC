@@ -4,8 +4,17 @@
 	import { marked } from 'marked';
 	import { ArrowRight } from '@jis3r/icons';
 	import { User, Calendar } from '@lucide/svelte';
+	import type { Post } from '$lib/features/news/schema';
 
-	let { newsItem, isSelected, onclick } = $props();
+	interface Props {
+		post: Post;
+		isSelected?: boolean;
+		onclick?: () => void;
+	}
+
+	let { post, isSelected = false, onclick }: Props = $props();
+
+	const renderedContent = $derived(marked.parse(post.content));
 </script>
 
 <Card.Root
@@ -18,22 +27,22 @@
 		<div class="mb-2 flex items-center justify-between text-xs text-muted-foreground">
 			<div class="flex items-center gap-1.5">
 				<User class="h-3.5 w-3.5" />
-				<span class="font-medium text-foreground/80">{newsItem.author}</span>
+				<span class="font-medium text-foreground/80">{post.author}</span>
 			</div>
 			<div class="flex items-center gap-1.5">
 				<Calendar class="h-3.5 w-3.5" />
-				{new Date(newsItem.updated_at).toLocaleDateString()}
+				{new Date(post.updated_at).toLocaleDateString()}
 			</div>
 		</div>
 
 		<Card.Title class="text-lg leading-snug transition-colors group-hover:text-primary">
-			{newsItem.title}
+			{post.title}
 		</Card.Title>
 	</Card.Header>
 
 	<Card.Content class="relative line-clamp-4 flex-1 overflow-hidden px-6 py-0 text-sm">
 		<div class="pointer-events-none prose-sm text-muted-foreground">
-			<Prose content={marked(newsItem.content)} />
+			<Prose content={renderedContent} />
 		</div>
 		<div
 			class="pointer-events-none absolute right-0 bottom-0 left-0 h-16 bg-linear-to-t from-card to-transparent"

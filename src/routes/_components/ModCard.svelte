@@ -1,8 +1,9 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import { ImageOff, Download, Clock } from '@jis3r/icons';
+	import type { Mod } from '$lib/features/mods/schema';
 
-	let { mod } = $props();
+	let { mod }: { mod: Mod } = $props();
 </script>
 
 <Card.Root class="overflow-hidden p-0 transition-colors hover:bg-accent/50">
