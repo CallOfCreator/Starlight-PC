@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { useSidebar } from '$lib/sidebar.svelte';
+	import { useSidebar } from '$lib/state/sidebar.svelte';
 
 	// Set custom sidebar content for the explore page
 	useSidebar(ExploreSidebar);
@@ -32,9 +32,9 @@
 		<h3 class="mb-2 text-sm font-medium">Among Us Version</h3>
 		<select class="w-full rounded border border-border bg-background px-2 py-1 text-sm">
 			<option>All Versions</option>
-			<option>1.20.x</option>
-			<option>1.19.x</option>
-			<option>1.18.x</option>
+			<option>AMOGUS 3</option>
+			<option>AMOGUS 2</option>
+			<option>AMOGUS 1</option>
 		</select>
 	</div>
 {/snippet}

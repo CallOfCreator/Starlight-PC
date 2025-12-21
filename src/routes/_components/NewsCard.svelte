@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
-	import Prose from '$lib/components/Prose.svelte';
+	import Prose from '$lib/components/shared/Prose.svelte';
 	import { marked } from 'marked';
 	import { ArrowRight } from '@jis3r/icons';
 	import { User, Calendar } from '@lucide/svelte';

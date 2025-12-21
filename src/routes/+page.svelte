@@ -6,7 +6,7 @@
 	import * as Carousel from '$lib/components/ui/carousel';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Card from '$lib/components/ui/card';
-	import { useSidebar } from '$lib/sidebar.svelte';
+	import { getSidebar } from '$lib/state/sidebar.svelte';
 
 	import NewsCard from './_components/NewsCard.svelte';
 	import ModCard from './_components/ModCard.svelte';
@@ -15,26 +15,35 @@
 	const newsQuery = createQuery(newsQueries.all);
 	const trendingModsQuery = createQuery(modQueries.trending);
 
+	const sidebar = getSidebar();
+
 	let selectedPost = $state<Post | null>(null);
+	let displayedPost = $state<Post | null>(null);
 
 	function toggleNews(item: Post) {
 		if (selectedPost?.id === item.id) {
 			selectedPost = null;
+			sidebar.close();
 		} else {
 			selectedPost = item;
+			displayedPost = item;
+			sidebar.open(NewsDetailSidebar, () => {
+				displayedPost = null;
+			});
 		}
 	}
 
-	$effect(() => {
-		useSidebar(selectedPost ? NewsDetailSidebar : null);
-	});
+	function closeSidebar() {
+		selectedPost = null;
+		sidebar.close();
+	}
 
 	const skeletons = Array.from({ length: 3 });
 </script>
 
 {#snippet NewsDetailSidebar()}
-	{#if selectedPost}
-		<NewsDetail post={selectedPost} onclose={() => (selectedPost = null)} />
+	{#if displayedPost}
+		<NewsDetail post={displayedPost} onclose={closeSidebar} />
 	{/if}
 {/snippet}
 

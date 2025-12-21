@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import Prose from '$lib/components/Prose.svelte';
+	import Prose from '$lib/components/shared/Prose.svelte';
 	import { marked } from 'marked';
 	import { X } from '@jis3r/icons';
 	import { User, Calendar } from '@lucide/svelte';
