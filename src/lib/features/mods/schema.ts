@@ -1,4 +1,3 @@
-// lib/features/mods/schema.ts
 import { type } from 'arktype';
 
 export const ExternalLink = type({
