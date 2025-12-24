@@ -9,7 +9,6 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Button } from '$lib/components/ui/button';
 	import { Search, ArrowUpDown, X } from '@lucide/svelte';
-	import { Separator } from '$lib/components/ui/separator';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	// --- State ---
@@ -82,9 +81,9 @@
 	);
 </script>
 
-<div class="scrollbar-styled h-full overflow-y-auto bg-background/50">
-	<div class="mx-auto flex max-w-7xl flex-col gap-8 p-6 lg:p-10">
-		<header class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+<div class="scrollbar-styled @container h-full overflow-y-auto bg-background/50">
+	<div class="mx-auto flex max-w-7xl flex-col gap-8 p-6 @lg:p-10">
+		<header class="flex flex-col gap-6 @lg:flex-row @lg:items-center @lg:justify-between">
 			<div class="space-y-1.5">
 				<div class="flex items-baseline gap-3">
 					<h1 class="text-4xl font-black tracking-tight">Explore</h1>
@@ -92,7 +91,7 @@
 				<p class="text-sm text-muted-foreground">Discover and manage mods for Among Us.</p>
 			</div>
 
-			<div class="flex items-center gap-3 self-end lg:self-center">
+			<div class="flex items-center gap-3 self-end @lg:self-center">
 				<div class="relative max-w-xs">
 					<Search
 						class="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground/70
@@ -114,7 +113,7 @@
 					{/if}
 				</div>
 
-				<div class="relative w-48 shrink-0 md:w-60">
+				<div class="relative w-48 shrink-0 @md:w-60">
 					<ArrowUpDown
 						class="pointer-events-none absolute top-1/2 left-3.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
 					/>
@@ -133,11 +132,9 @@
 			</div>
 		</header>
 
-		<Separator class="bg-foreground/5" />
-
 		<main class="grid grid-cols-1 gap-4 xl:grid-cols-2">
 			{#if showSkeletons}
-				{#each skeletons as skeleton (skeleton)}
+				{#each skeletons, i (i)}
 					<div class="flex h-40 gap-4 overflow-hidden rounded-2xl border bg-card shadow-sm">
 						<Skeleton class="h-full w-40 rounded-none" />
 						<div class="flex flex-1 flex-col space-y-3 p-4">

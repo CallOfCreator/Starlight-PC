@@ -4,13 +4,13 @@
 	import { modQueries } from '$lib/features/mods/queries';
 	import type { Post } from '$lib/features/news/schema';
 	import * as Carousel from '$lib/components/ui/carousel';
-	import { Skeleton } from '$lib/components/ui/skeleton';
-	import * as Card from '$lib/components/ui/card';
 	import { getSidebar } from '$lib/state/sidebar.svelte';
 
-	import NewsCard from './_components/NewsCard.svelte';
-	import ModCard from './_components/ModCard.svelte';
-	import NewsDetail from './_components/NewsDetail.svelte';
+	import NewsCard from '$lib/features/news/components/NewsCard.svelte';
+	import ModCard from '$lib/features/mods/components/ModCard.svelte';
+	import NewsDetail from '$lib/features/news/components/NewsDetail.svelte';
+	import NewsCardSkeleton from '$lib/features/news/components/NewsCardSkeleton.svelte';
+	import ModCardSkeleton from '$lib/features/mods/components/ModCardSkeleton.svelte';
 
 	const newsQuery = createQuery(newsQueries.all);
 	const trendingModsQuery = createQuery(modQueries.trending);
@@ -56,12 +56,22 @@
 		</div>
 
 		{#if newsQuery.isLoading}
-			<div class="grid grid-cols-1 gap-6 px-10 @sm:grid-cols-2 @md:grid-cols-3">
-				{#each skeletons, i (i)}
-					<Skeleton class="h-72 w-full rounded-xl" />
-				{/each}
+			<Carousel.Root opts={{ align: 'start' }} class="w-full px-10">
+				<Carousel.Content class="-ml-4">
+					{#each skeletons, i (i)}
+						<Carousel.Item class="pl-4 @lg:basis-1/2 @2xl:basis-1/3">
+							<NewsCardSkeleton />
+						</Carousel.Item>
+					{/each}
+				</Carousel.Content>
+				<Carousel.Previous class="-left-2" />
+				<Carousel.Next class="-right-2" />
+			</Carousel.Root>
+		{:else if newsQuery.isError}
+			<div class="mx-10 rounded-md border border-destructive/20 bg-destructive/10 p-4">
+				<p class="text-sm font-semibold text-destructive">Error loading posts</p>
 			</div>
-		{:else if newsQuery.isSuccess}
+		{:else if newsQuery.isSuccess && newsQuery.data}
 			<Carousel.Root opts={{ align: 'start' }} class="w-full px-10">
 				<Carousel.Content class="-ml-4">
 					{#each newsQuery.data as post (post.id)}
@@ -93,20 +103,13 @@
 			<Carousel.Root opts={{ align: 'start' }} class="w-full px-10">
 				<Carousel.Content class="-ml-2">
 					{#each skeletons, i (i)}
-						<Carousel.Item class="basis-full @3xl:basis-1/2 @5xl:basis-1/3">
-							<Card.Root class="overflow-hidden p-0">
-								<div class="flex h-40">
-									<Skeleton class="h-40 w-40 shrink-0 rounded-none" />
-									<div class="flex-1 space-y-3 p-3">
-										<Skeleton class="h-5 w-3/4" />
-										<Skeleton class="h-4 w-full" />
-										<Skeleton class="mt-auto h-4 w-1/3" />
-									</div>
-								</div>
-							</Card.Root>
+						<Carousel.Item class="basis-full pl-2 @4xl:basis-1/2 @7xl:basis-1/3">
+							<ModCardSkeleton />
 						</Carousel.Item>
 					{/each}
 				</Carousel.Content>
+				<Carousel.Previous class="-left-2" />
+				<Carousel.Next class="-right-2" />
 			</Carousel.Root>
 		{:else if trendingModsQuery.isError}
 			<div class="mx-10 rounded-md border border-destructive/20 bg-destructive/10 p-4">
@@ -118,6 +121,9 @@
 					{#each trendingModsQuery.data as mod (mod.id)}
 						<Carousel.Item class="basis-full pl-2 @4xl:basis-1/2 @7xl:basis-1/3">
 							<ModCard {mod} />
+						</Carousel.Item>
+						<Carousel.Item class="basis-full pl-2 @4xl:basis-1/2 @7xl:basis-1/3">
+							<ModCardSkeleton />
 						</Carousel.Item>
 					{/each}
 				</Carousel.Content>

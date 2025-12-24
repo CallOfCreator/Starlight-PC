@@ -10,14 +10,6 @@
 	import { Library } from '@lucide/svelte';
 	import StarBackground from '$lib/components/shared/StarBackground.svelte';
 
-	const breadcrumbLabels = {
-		'/': 'Home',
-		'/explore': 'Explore',
-		'/library': 'Library',
-		'/settings': 'Settings',
-		'/new': 'Create New'
-	};
-
 	let { children } = $props();
 
 	const sidebar = setSidebar();
@@ -65,7 +57,7 @@
 					<ArrowRight />
 				</Button>
 			</div>
-			<AutoBreadcrumb labels={breadcrumbLabels} homeIcon={House} maxItems={4} />
+			<AutoBreadcrumb homeIcon={House} maxItems={4} />
 		</div>
 		{#if isTauri}
 			<section data-tauri-drag-region class="relative z-10 ml-auto flex items-center">

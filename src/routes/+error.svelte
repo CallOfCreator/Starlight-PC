@@ -13,18 +13,9 @@
 	}
 </script>
 
-<svelte:head>
-	<title>{status} - {is404 ? 'Page Not Found' : 'Error'}</title>
-</svelte:head>
-
 <div
-	class="relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center overflow-hidden p-8"
+	class="@container relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center overflow-hidden p-8"
 >
-	<!-- Subtle Background Pattern -->
-	<div
-		class="absolute inset-0 -z-10 h-full w-full bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-size-[16px_16px] dark:bg-zinc-950 dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)]"
-	></div>
-
 	<div class="mx-auto flex max-w-[500px] flex-col items-center text-center">
 		<!-- Error Icon / Code -->
 		<div class="relative mb-8">
@@ -42,7 +33,7 @@
 
 		<!-- Text Content -->
 		<div class="space-y-4">
-			<h1 class="text-4xl font-extrabold tracking-tight lg:text-5xl">
+			<h1 class="text-4xl font-extrabold tracking-tight @lg:text-5xl">
 				{is404 ? "We've lost this page" : 'Something went wrong'}
 			</h1>
 			<p class="text-xl text-muted-foreground">
