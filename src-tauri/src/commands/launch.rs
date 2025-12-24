@@ -207,11 +207,6 @@ fn set_dll_directory(path: &Path) -> Result<(), String> {
     }
 }
 
-#[cfg(not(windows))]
-fn set_dll_directory(_path: &Path) -> Result<(), String> {
-    Ok(())
-}
-
 #[cfg(windows)]
 #[link(name = "Kernel32")]
 extern "system" {

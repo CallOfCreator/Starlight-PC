@@ -1,13 +1,17 @@
-use log::info;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg(target_os = "windows")]
-use {std::ffi::OsStr, sysinfo::System, winreg::enums::*, winreg::RegKey};
+use {log::info, std::ffi::OsStr, std::path::Path, sysinfo::System, winreg::enums::*, winreg::RegKey};
 
+#[cfg(target_os = "linux")]
+use std::path::Path;
+
+#[cfg(target_os = "windows")]
 const AMONG_US_EXE: &str = "Among Us.exe";
 
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 fn verify_among_us_directory(path: &Path) -> bool {
-    path.is_dir() && path.join(AMONG_US_EXE).is_file()
+    path.is_dir() && path.join("Among Us.exe").is_file()
 }
 
 #[cfg(target_os = "windows")]
@@ -83,39 +87,31 @@ pub fn get_among_us_paths() -> Vec<PathBuf> {
             path.push(".local/share/Steam/steamapps/common/Among Us");
             path
         })
-        .filter(|path| path.is_dir())
+        .filter(|path| verify_among_us_directory(path))
         .into_iter()
         .collect()
 }
 
+// macOS stub - Among Us doesn't run natively on macOS
+#[cfg(target_os = "macos")]
+pub fn get_among_us_paths() -> Vec<PathBuf> {
+    Vec::new()
+}
+
+#[cfg(target_os = "windows")]
 pub fn is_among_us_running() -> bool {
-    #[cfg(target_os = "windows")]
-    {
-        let system = System::new_all();
-        [AMONG_US_EXE, "Among Us"].iter().any(|name| {
-            system
-                .processes_by_exact_name(OsStr::new(name))
-                .next()
-                .is_some()
-        })
-    }
+    let system = System::new_all();
+    [AMONG_US_EXE, "Among Us"].iter().any(|name| {
+        system
+            .processes_by_exact_name(OsStr::new(name))
+            .next()
+            .is_some()
+    })
+}
 
-    #[cfg(target_family = "unix")]
-    {
-        use libproc::{
-            proc_pid::name,
-            processes::{self, ProcFilter},
-        };
-
-        processes::pids_by_type(ProcFilter::All)
-            .ok()
-            .map(|pids| {
-                pids.iter().any(|&pid| {
-                    name(pid as i32)
-                        .ok()
-                        .map_or(false, |n| n.to_lowercase().contains("among us"))
-                })
-            })
-            .unwrap_or(false)
-    }
+// For non-Windows platforms, just return false
+// Among Us detection is only critical on Windows where the game runs
+#[cfg(not(target_os = "windows"))]
+pub fn is_among_us_running() -> bool {
+    false
 }
