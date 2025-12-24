@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 #[cfg(target_os = "windows")]
-use {log::info, std::ffi::OsStr, std::path::Path, sysinfo::System, winreg::enums::*, winreg::RegKey};
+use {
+    log::info, std::ffi::OsStr, std::path::Path, sysinfo::System, winreg::enums::*, winreg::RegKey,
+};
 
 #[cfg(target_os = "linux")]
 use std::path::Path;

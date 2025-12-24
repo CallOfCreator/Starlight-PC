@@ -2,29 +2,32 @@
 	import { NavButton } from '$lib/components/ui/nav-button';
 	import { Button } from '$lib/components/ui/button';
 	import { AutoBreadcrumb } from '$lib/components/ui/breadcrumb';
-	import TitlebarButtons from './TitlebarButtons.svelte';
 	import { browser } from '$app/environment';
 	import { setSidebar } from '$lib/state/sidebar.svelte';
 	import { default as StarlightIcon } from '$lib/assets/starlight.svg?component';
 	import { ArrowLeft, ArrowRight, Settings, Compass, House, Plus } from '@jis3r/icons';
 	import { Library } from '@lucide/svelte';
 	import StarBackground from '$lib/components/shared/StarBackground.svelte';
+	import { platform } from '@tauri-apps/plugin-os';
 
 	let { children } = $props();
-
 	const sidebar = setSidebar();
 
+	// Detect platform for layout adjustments
+	let platformName = $state<'macos' | 'windows' | 'linux' | 'other'>('other');
+
+	if (browser && (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
+		const osType = platform();
+		if (osType === 'macos') platformName = 'macos';
+		else if (osType === 'windows') platformName = 'windows';
+		else platformName = 'linux';
+	}
+
 	function handleTransitionEnd(e: TransitionEvent) {
-		// Only finalize if the sidebar closing animation finished
 		if (e.propertyName === 'grid-template-columns' && !sidebar.isOpen) {
 			sidebar.finalizeClose();
 		}
 	}
-
-	const isTauri =
-		browser &&
-		typeof (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
-			'undefined';
 </script>
 
 <div
@@ -40,12 +43,17 @@
 	<!-- Top Status Bar -->
 	<div
 		data-tauri-drag-region
-		class="relative z-10 flex h-(--top-bar-height) overflow-visible bg-card/80 [grid-area:status]"
+		class="relative z-10 flex h-(--top-bar-height) items-center bg-card/80 [grid-area:status]
+			{platformName === 'macos' ? 'pl-[75px]' : ''}
+			{platformName === 'windows' ? 'pr-[135px]' : ''}"
 	>
-		<div data-tauri-drag-region class="relative z-10 flex items-center gap-2 p-5">
+		<!-- Left Side: Logo/Brand -->
+		<div data-tauri-drag-region class="flex items-center gap-2 p-5">
 			<StarlightIcon class="h-6 w-6" />
 		</div>
-		<div data-tauri-drag-region class="relative z-10 flex items-center gap-1">
+
+		<!-- Center-Left: Navigation Controls -->
+		<div data-tauri-drag-region class="flex items-center gap-1">
 			<div
 				data-tauri-drag-region-exclude
 				class="mr-4 flex items-center gap-1 rounded-full bg-border"
@@ -59,12 +67,11 @@
 			</div>
 			<AutoBreadcrumb homeIcon={House} maxItems={4} />
 		</div>
-		{#if isTauri}
-			<section data-tauri-drag-region class="relative z-10 ml-auto flex items-center">
-				<div class="mr-3 flex"></div>
-				<TitlebarButtons />
-			</section>
-		{/if}
+
+		<!-- Right Side: Spacer for Windows controls or additional tools -->
+		<div data-tauri-drag-region class="ml-auto flex h-full items-center px-4">
+			<!-- You can put global search or profile here, it will sit to the left of Windows buttons -->
+		</div>
 	</div>
 
 	<!-- Left Navigation Bar -->
@@ -102,7 +109,7 @@
 		</NavButton>
 	</nav>
 
-	<!-- Main Content Area with Sidebar -->
+	<!-- Main Content Area -->
 	<div
 		class="absolute inset-0 top-(--top-bar-height) left-(--left-bar-width) z-1 grid h-[calc(100vh-var(--top-bar-height))] overflow-hidden rounded-tl-xl bg-background
 			transition-[grid-template-columns] duration-400 ease-in-out
@@ -110,13 +117,6 @@
 		ontransitionend={handleTransitionEnd}
 	>
 		<div class="relative h-full grow overflow-hidden">
-			<div
-				class="loading-indicator fixed top-(--top-bar-height) left-(--left-bar-width) z-50 h-8
-					w-[calc(100%-var(--left-bar-width)-var(--right-bar-width))] overflow-hidden
-					rounded-tl-xl"
-			>
-				<!-- Loading indicator content -->
-			</div>
 			<div
 				id="background-teleport-target"
 				class="absolute -z-10 h-full w-[calc(100%-var(--right-bar-width))] overflow-hidden rounded-tl-xl"
@@ -139,7 +139,6 @@
 </div>
 
 <style>
-	/* Native Desktop Drag handling */
 	[data-tauri-drag-region] {
 		-webkit-app-region: drag;
 	}
@@ -147,7 +146,6 @@
 		-webkit-app-region: no-drag;
 	}
 
-	/* Complex polygons still easier in CSS */
 	.star-container {
 		clip-path: polygon(
 			0 0,
@@ -159,7 +157,6 @@
 		);
 	}
 
-	/* Inset shadow effects on pseudo-elements */
 	.app-shell::after {
 		content: '';
 		position: fixed;
@@ -170,15 +167,5 @@
 		box-shadow:
 			inset 1px 1px 15px rgba(0, 0, 0, 0.1),
 			inset 1px 1px 1px rgba(255, 255, 255, 0.1);
-	}
-
-	.app-sidebar::before {
-		content: '';
-		position: absolute;
-		inset-block: 0;
-		left: -2rem;
-		width: 2rem;
-		box-shadow: inset -15px 0 15px -15px rgba(0, 0, 0, 0.15);
-		pointer-events: none;
 	}
 </style>

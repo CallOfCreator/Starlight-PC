@@ -25,6 +25,7 @@
 		"core:window:allow-start-dragging",
 		"core:webview:allow-set-webview-zoom",
 		"store:default",
-		"fs:default"
+		"fs:default",
+		"os:default"
 	]
 }
