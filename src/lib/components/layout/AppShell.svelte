@@ -9,19 +9,31 @@
 	import { Library } from '@lucide/svelte';
 	import StarBackground from '$lib/components/shared/StarBackground.svelte';
 	import { platform } from '@tauri-apps/plugin-os';
+	import { getCurrentWindow } from '@tauri-apps/api/window';
 
 	let { children } = $props();
 	const sidebar = setSidebar();
 
 	// Detect platform for layout adjustments
 	let platformName = $state<'macos' | 'windows' | 'linux' | 'other'>('other');
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let appWindow = $state<any>(null);
 
 	if (browser && (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
-		const osType = platform();
-		if (osType === 'macos') platformName = 'macos';
-		else if (osType === 'windows') platformName = 'windows';
-		else platformName = 'linux';
+		try {
+			const osType = platform();
+			if (osType === 'macos') platformName = 'macos';
+			else if (osType === 'windows') platformName = 'windows';
+			else platformName = 'linux';
+
+			appWindow = getCurrentWindow();
+		} catch (e) {
+			console.error('Failed to initialize Tauri APIs:', e);
+		}
 	}
+	const minimize = () => appWindow?.minimize();
+	const toggleMaximize = () => appWindow?.toggleMaximize();
+	const close = () => appWindow?.close();
 
 	function handleTransitionEnd(e: TransitionEvent) {
 		if (e.propertyName === 'grid-template-columns' && !sidebar.isOpen) {
@@ -44,8 +56,7 @@
 	<div
 		data-tauri-drag-region
 		class="relative z-10 flex h-(--top-bar-height) items-center bg-card/80 [grid-area:status]
-			{platformName === 'macos' ? 'pl-[75px]' : ''}
-			{platformName === 'windows' ? 'pr-[135px]' : ''}"
+			{platformName === 'macos' ? 'pl-[75px]' : ''}"
 	>
 		<!-- Left Side: Logo/Brand -->
 		<div data-tauri-drag-region class="flex items-center gap-2 p-5">
@@ -69,8 +80,26 @@
 		</div>
 
 		<!-- Right Side: Spacer for Windows controls or additional tools -->
-		<div data-tauri-drag-region class="ml-auto flex h-full items-center px-4">
-			<!-- You can put global search or profile here, it will sit to the left of Windows buttons -->
+		<div data-tauri-drag-region class="ml-auto flex h-full items-center">
+			{#if platformName === 'windows'}
+				<div class="flex h-full">
+					<button aria-label="Minimize" onclick={minimize} class="window-control">
+						<svg width="10" height="1" viewBox="0 0 10 1"
+							><path d="M0 0h10v1H0z" fill="currentColor" /></svg
+						>
+					</button>
+					<button aria-label="Maximize" onclick={toggleMaximize} class="window-control">
+						<svg width="10" height="10" viewBox="0 0 10 10"
+							><path d="M0 0v10h10V0H0zm9 1v8H1V1h8z" fill="currentColor" /></svg
+						>
+					</button>
+					<button aria-label="Close" onclick={close} class="window-control hover:bg-red-500!">
+						<svg width="10" height="10" viewBox="0 0 10 10"
+							><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" fill="none" /></svg
+						>
+					</button>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -139,6 +168,8 @@
 </div>
 
 <style>
+	@reference "$lib/../app.css";
+
 	[data-tauri-drag-region] {
 		-webkit-app-region: drag;
 	}
@@ -167,5 +198,10 @@
 		box-shadow:
 			inset 1px 1px 15px rgba(0, 0, 0, 0.1),
 			inset 1px 1px 1px rgba(255, 255, 255, 0.1);
+	}
+
+	.window-control {
+		@apply flex h-full w-[45px] items-center justify-center transition-colors hover:bg-white/10;
+		-webkit-app-region: no-drag;
 	}
 </style>
