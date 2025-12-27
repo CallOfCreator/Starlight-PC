@@ -4,7 +4,7 @@
 	import ModCard from '$lib/features/mods/components/ModCard.svelte';
 	import ModCardSkeleton from '$lib/features/mods/components/ModCardSkeleton.svelte';
 	import { Input } from '$lib/components/ui/input';
-	import * as NativeSelect from '$lib/components/ui/native-select';
+	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
 	import { Search, ArrowUpDown, X } from '@lucide/svelte';
 	import { Compass, ChevronLeft, ChevronRight } from '@jis3r/icons';
@@ -106,15 +106,26 @@
 				{/if}
 			</div>
 
-			<div class="relative w-48">
+			<div class="relative">
 				<ArrowUpDown
-					class="absolute top-1/2 left-3.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+					class="absolute top-1/2 left-3.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground/70"
 				/>
-				<NativeSelect.Root bind:value={sortBy} class="h-10 w-full rounded-full pl-10">
-					{#each sortOptions as opt (opt.value)}
-						<NativeSelect.Option value={opt.value}>{opt.label}</NativeSelect.Option>
-					{/each}
-				</NativeSelect.Root>
+				<Select.Root bind:value={sortBy} type="single">
+					<Select.Trigger
+						class="h-10 w-full rounded-full border-muted-foreground/10 bg-muted/50 pl-10"
+					>
+						{#each sortOptions as opt (opt.value)}
+							{#if opt.value === sortBy}
+								{opt.label}
+							{/if}
+						{/each}
+					</Select.Trigger>
+					<Select.Content>
+						{#each sortOptions as opt (opt.value)}
+							<Select.Item value={opt.value}>{opt.label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
 			</div>
 		</div>
 	</header>
