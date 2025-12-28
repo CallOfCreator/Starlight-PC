@@ -14,6 +14,7 @@
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { launchService } from '$lib/features/profiles/launch-service';
 	import type { Profile } from '$lib/features/profiles/schema';
+	import { showToastError } from '$lib/utils/toast';
 
 	let { children } = $props();
 	const sidebar = setSidebar();
@@ -53,7 +54,7 @@
 		try {
 			await launchService.launchProfile(activeProfile);
 		} catch (e) {
-			alert(e instanceof Error ? e.message : 'Failed to launch profile');
+			showToastError(e instanceof Error ? e.message : 'Failed to launch profile');
 		}
 	}
 </script>

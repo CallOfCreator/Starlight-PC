@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
 	import { ModeWatcher } from 'mode-watcher';
+	import { Toaster } from '$lib/components/ui/sonner';
 	import AppShell from '$lib/components/layout/AppShell.svelte';
 
 	const queryClient = new QueryClient({
@@ -23,3 +24,4 @@
 		{@render children()}
 	</AppShell>
 </QueryClientProvider>
+<Toaster />

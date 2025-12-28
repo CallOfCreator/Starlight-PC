@@ -9,6 +9,7 @@
 	import { modInstallService } from '$lib/features/profiles/mod-install-service';
 	import type { Profile } from '$lib/features/profiles/schema';
 	import type { ProfileMod } from '$lib/features/profiles/schema';
+	import { showToastError } from '$lib/utils/toast';
 
 	const queryClient = useQueryClient();
 	const profilesQuery = createQuery(() => profileQueries.all());
@@ -18,7 +19,7 @@
 		try {
 			await launchService.launchVanilla();
 		} catch (e) {
-			alert(e instanceof Error ? e.message : 'Failed to launch game');
+			showToastError(e instanceof Error ? e.message : 'Failed to launch game');
 		}
 	}
 
@@ -35,7 +36,7 @@
 			await launchService.launchProfile(profile);
 		} catch (e) {
 			queryClient.setQueryData(['profiles'], previousProfiles);
-			alert(e instanceof Error ? e.message : 'Failed to launch profile');
+			showToastError(e instanceof Error ? e.message : 'Failed to launch profile');
 		}
 	}
 
@@ -52,7 +53,7 @@
 			await profileService.deleteProfile(profileId);
 		} catch (e) {
 			queryClient.setQueryData(['profiles'], previousProfiles);
-			alert(e instanceof Error ? e.message : 'Failed to delete profile');
+			showToastError(e instanceof Error ? e.message : 'Failed to delete profile');
 		}
 	}
 
@@ -74,7 +75,7 @@
 			await profileService.removeModFromProfile(profileId, mod.mod_id);
 		} catch (e) {
 			queryClient.setQueryData(['profiles'], previousProfiles);
-			alert(e instanceof Error ? e.message : 'Failed to remove mod from profile');
+			showToastError(e instanceof Error ? e.message : 'Failed to remove mod from profile');
 		}
 	}
 </script>

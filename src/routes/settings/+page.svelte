@@ -8,6 +8,7 @@
 	import { settingsQueries } from '$lib/features/settings/queries';
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import type { AppSettings } from '$lib/features/settings/schema';
+	import { showToastError } from '$lib/utils/toast';
 
 	const settingsQuery = createQuery(() => settingsQueries.get());
 	const settings = $derived(settingsQuery.data as AppSettings | undefined);
@@ -35,7 +36,7 @@
 				close_on_launch: localCloseOnLaunch
 			});
 		} catch (e) {
-			alert(e instanceof Error ? e.message : 'Failed to save settings');
+			showToastError(e instanceof Error ? e.message : 'Failed to save settings');
 		}
 	}
 </script>
