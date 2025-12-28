@@ -3,7 +3,6 @@ import { type } from 'arktype';
 import { apiFetch } from '$lib/api/client';
 import { ModVersion } from '../mods/schema';
 import { profileService } from './profile-service';
-import { settingsService } from '../settings/settings-service';
 
 const ModVersionsArray = type(ModVersion.array());
 
@@ -31,13 +30,5 @@ export const profileQueries = {
 		queryOptions({
 			queryKey: ['profiles', 'hasAny'] as const,
 			queryFn: () => profileService.getProfiles().then((profiles) => profiles.length > 0)
-		})
-};
-
-export const settingsQueries = {
-	get: () =>
-		queryOptions({
-			queryKey: ['settings'] as const,
-			queryFn: () => settingsService.getSettings()
 		})
 };

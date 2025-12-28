@@ -3,6 +3,7 @@ import { mkdir, remove } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import type { Profile } from './schema';
 import { downloadBepInEx } from './bepinex-download';
+import { settingsService } from '../settings/settings-service';
 
 class ProfileService {
 	async getStore(): Promise<Store> {
@@ -161,12 +162,9 @@ class ProfileService {
 	}
 
 	private async getBepInExUrl(): Promise<string> {
-		const store = await this.getStore();
-		const settings = await store.get<{ bepinex_url: string }>('settings');
-		return settings?.bepinex_url ?? DEFAULT_BEPINEX_URL;
+		const settings = await settingsService.getSettings();
+		return settings.bepinex_url;
 	}
 }
 
-const DEFAULT_BEPINEX_URL =
-	'https://builds.bepinex.dev/projects/bepinex_be/738/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.738%2Baf0cba7.zip';
 export const profileService = new ProfileService();

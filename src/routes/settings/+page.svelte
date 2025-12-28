@@ -5,7 +5,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import { Settings } from '@lucide/svelte';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { settingsQueries } from '$lib/features/profiles/queries';
+	import { settingsQueries } from '$lib/features/settings/queries';
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import type { AppSettings } from '$lib/features/settings/schema';
 
