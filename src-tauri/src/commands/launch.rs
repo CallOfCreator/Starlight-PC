@@ -17,6 +17,8 @@ pub fn launch_modded(
 ) -> Result<(), String> {
     let game_path = PathBuf::from(&game_exe);
     let game_dir = game_path.parent().ok_or("Invalid game path")?;
+    #[cfg(not(windows))]
+    let _ = profile_path;
 
     #[cfg(windows)]
     {
