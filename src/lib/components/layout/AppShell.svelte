@@ -18,6 +18,10 @@
 	import { gameState } from '$lib/features/profiles/game-state-service.svelte';
 	import CreateProfileDialog from '$lib/features/profiles/components/CreateProfileDialog.svelte';
 
+	if (browser) {
+		gameState.init();
+	}
+
 	let { children } = $props();
 	const sidebar = setSidebar();
 	let dialogRef = $state({ open: () => {} });

@@ -10,6 +10,10 @@ on:
     paths:
       - 'src-tauri/**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-rust:
     runs-on: ubuntu-latest

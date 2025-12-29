@@ -36,9 +36,6 @@ fn start_process_monitor<R: Runtime>(app: AppHandle<R>) {
                         let _ = app.emit("game-state-changed", GameStatePayload { running: false });
                         break;
                     }
-                        let _ = app.emit("game-state-changed", GameStatePayload { running: false });
-                        break;
-                    }
                     Ok(None) => {
                         // Still running
                     }
@@ -66,16 +63,6 @@ pub fn launch_modded<R: Runtime>(
     dotnet_dir: String,
     coreclr_path: String,
 ) -> Result<(), String> {
-    // Check if already running
-    {
-        let mut guard = GAME_PROCESS.lock().unwrap();
-        if let Some(ref mut child) = *guard {
-            if child.try_wait().ok().flatten().is_none() {
-                return Err("Game is already running".into());
-            }
-        }
-    }
-
     let game_path = PathBuf::from(&game_exe);
     let game_dir = game_path.parent().ok_or("Invalid game path")?;
 
@@ -96,42 +83,53 @@ pub fn launch_modded<R: Runtime>(
     #[cfg(not(windows))]
     let _ = profile_path;
 
-    let child = Command::new(&game_exe)
-        .current_dir(game_dir)
-        .arg("--doorstop-enabled")
-        .arg("true")
-        .arg("--doorstop-target-assembly")
-        .arg(&bepinex_dll)
-        .arg("--doorstop-clr-corlib-dir")
-        .arg(&dotnet_dir)
-        .arg("--doorstop-clr-runtime-coreclr-path")
-        .arg(&coreclr_path)
-        .spawn()
-        .map_err(|e| format!("Failed to spawn Among Us: {e}"))?;
-
-    *GAME_PROCESS.lock().unwrap() = Some(child);
-    start_process_monitor(app);
-
-    Ok(())
-}
-
-#[tauri::command]
-pub fn launch_vanilla<R: Runtime>(app: AppHandle<R>, game_exe: String) -> Result<(), String> {
-    {
+    let _child = {
         let mut guard = GAME_PROCESS.lock().unwrap();
         if let Some(ref mut child) = *guard {
             if child.try_wait().ok().flatten().is_none() {
                 return Err("Game is already running".into());
             }
         }
-    }
 
-    let child = Command::new(&game_exe)
-        .spawn()
-        .map_err(|e| format!("Failed to launch Among Us: {e}"))?;
+        let child = Command::new(&game_exe)
+            .current_dir(game_dir)
+            .arg("--doorstop-enabled")
+            .arg("true")
+            .arg("--doorstop-target-assembly")
+            .arg(&bepinex_dll)
+            .arg("--doorstop-clr-corlib-dir")
+            .arg(&dotnet_dir)
+            .arg("--doorstop-clr-runtime-coreclr-path")
+            .arg(&coreclr_path)
+            .spawn()
+            .map_err(|e| format!("Failed to spawn Among Us: {e}"))?;
 
-    *GAME_PROCESS.lock().unwrap() = Some(child);
+        *guard = Some(child);
+        guard
+    };
+
     start_process_monitor(app);
+    Ok(())
+}
 
+#[tauri::command]
+pub fn launch_vanilla<R: Runtime>(app: AppHandle<R>, game_exe: String) -> Result<(), String> {
+    let _child = {
+        let mut guard = GAME_PROCESS.lock().unwrap();
+        if let Some(ref mut child) = *guard {
+            if child.try_wait().ok().flatten().is_none() {
+                return Err("Game is already running".into());
+            }
+        }
+
+        let child = Command::new(&game_exe)
+            .spawn()
+            .map_err(|e| format!("Failed to launch Among Us: {e}"))?;
+
+        *guard = Some(child);
+        guard
+    };
+
+    start_process_monitor(app);
     Ok(())
 }
