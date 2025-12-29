@@ -2,7 +2,6 @@
 	import '../app.css';
 	import { browser } from '$app/environment';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
-	import { ModeWatcher } from 'mode-watcher';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import AppShell from '$lib/components/layout/AppShell.svelte';
 
@@ -16,9 +15,10 @@
 		}
 	});
 	let { children } = $props();
+
+	document.documentElement.classList.add('dark');
 </script>
 
-<ModeWatcher />
 <QueryClientProvider client={queryClient}>
 	<AppShell>
 		{@render children()}

@@ -60,7 +60,6 @@
 		"arktype": "^2.1.29",
 		"dompurify": "^3.3.0",
 		"jszip": "^3.10.1",
-		"marked": "^16.4.1",
-		"mode-watcher": "^1.1.0"
+		"marked": "^16.4.1"
 	}
 }
