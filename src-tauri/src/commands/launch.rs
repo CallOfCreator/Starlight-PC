@@ -20,27 +20,29 @@ pub struct GameStatePayload {
 
 fn start_process_monitor<R: Runtime>(app: AppHandle<R>) {
     std::thread::spawn(move || {
-        // Emit that game started
         let _ = app.emit("game-state-changed", GameStatePayload { running: true });
 
         loop {
             std::thread::sleep(Duration::from_millis(500));
 
-            let mut guard = GAME_PROCESS.lock().map_err(|_| "Failed to acquire process lock")?;
+            let mut guard = match GAME_PROCESS.lock() {
+                Ok(guard) => guard,
+                Err(_) => {
+                    let _ = app.emit("game-state-changed", GameStatePayload { running: false });
+                    break;
+                }
+            };
+
             if let Some(ref mut child) = *guard {
                 match child.try_wait() {
                     Ok(Some(_status)) => {
-                        // Process exited
                         *guard = None;
                         drop(guard);
                         let _ = app.emit("game-state-changed", GameStatePayload { running: false });
                         break;
                     }
-                    Ok(None) => {
-                        // Still running
-                    }
+                    Ok(None) => {}
                     Err(_) => {
-                        // Error checking status, assume dead
                         *guard = None;
                         drop(guard);
                         let _ = app.emit("game-state-changed", GameStatePayload { running: false });
