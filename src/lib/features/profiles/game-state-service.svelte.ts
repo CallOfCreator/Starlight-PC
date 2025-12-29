@@ -5,7 +5,9 @@ class GameStateService {
 	#unlisten: UnlistenFn | null = null;
 
 	get running(): boolean {
-		this.#ensureInitialized();
+		if (!this.#unlisten) {
+			console.warn('GameStateService not initialized yet');
+		}
 		return this.#running;
 	}
 
