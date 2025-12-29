@@ -2,24 +2,40 @@
 	import { Library, Play, Ghost } from '@lucide/svelte';
 	import ProfileCard from '$lib/features/profiles/components/ProfileCard.svelte';
 	import CreateProfileDialog from '$lib/features/profiles/components/CreateProfileDialog.svelte';
+	import {
+		AlertDialog,
+		AlertDialogAction,
+		AlertDialogCancel,
+		AlertDialogContent,
+		AlertDialogDescription,
+		AlertDialogFooter,
+		AlertDialogHeader,
+		AlertDialogTitle
+	} from '$lib/components/ui/alert-dialog';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { launchService } from '$lib/features/profiles/launch-service';
 	import { profileService } from '$lib/features/profiles/profile-service';
-	import { modInstallService } from '$lib/features/profiles/mod-install-service';
 	import type { Profile } from '$lib/features/profiles/schema';
-	import type { ProfileMod } from '$lib/features/profiles/schema';
-	import { showToastError } from '$lib/utils/toast';
+	import { showToastError, showToastSuccess } from '$lib/utils/toast';
 
 	const queryClient = useQueryClient();
 	const profilesQuery = createQuery(() => profileQueries.all());
 	const profiles = $derived((profilesQuery.data ?? []) as Profile[]);
 
+	let deleteDialogOpen = $state(false);
+	let profileToDelete = $state<Profile | null>(null);
+	let isLaunchingVanilla = $state(false);
+
 	async function handleLaunchVanilla() {
+		isLaunchingVanilla = true;
 		try {
 			await launchService.launchVanilla();
 		} catch (e) {
 			showToastError(e);
+		} finally {
+			isLaunchingVanilla = false;
 		}
 	}
 
@@ -34,14 +50,28 @@
 
 		try {
 			await launchService.launchProfile(profile);
+			queryClient.invalidateQueries({ queryKey: ['profiles'] });
+			queryClient.invalidateQueries({ queryKey: ['profiles', 'active'] });
 		} catch (e) {
 			queryClient.setQueryData(['profiles'], previousProfiles);
 			showToastError(e);
 		}
 	}
 
-	async function handleDeleteProfile(profileId: string) {
-		if (!confirm('Delete this profile?')) return;
+	function confirmDeleteProfile(profileId: string) {
+		const profile = profiles.find((p) => p.id === profileId);
+		if (profile) {
+			profileToDelete = profile;
+			deleteDialogOpen = true;
+		}
+	}
+
+	async function handleDeleteProfile() {
+		if (!profileToDelete) return;
+
+		const profileId = profileToDelete.id;
+		const profileName = profileToDelete.name;
+		deleteDialogOpen = false;
 
 		const previousProfiles = queryClient.getQueryData<Profile[]>(['profiles']);
 
@@ -51,32 +81,18 @@
 
 		try {
 			await profileService.deleteProfile(profileId);
+			showToastSuccess(`Profile "${profileName}" deleted`);
 		} catch (e) {
 			queryClient.setQueryData(['profiles'], previousProfiles);
 			showToastError(e);
+		} finally {
+			profileToDelete = null;
 		}
 	}
 
-	async function handleRemoveMod(profileId: string, mod: ProfileMod) {
-		const previousProfiles = queryClient.getQueryData<Profile[]>(['profiles']);
-
-		queryClient.setQueryData(['profiles'], (old = []) =>
-			(old as Profile[]).map((p) =>
-				p.id === profileId ? { ...p, mods: p.mods.filter((m) => m.mod_id !== mod.mod_id) } : p
-			)
-		);
-
-		try {
-			const profile = profiles.find((p) => p.id === profileId);
-			if (!profile) return;
-
-			const modVersionInfo = await modInstallService.getModVersionInfo(mod.mod_id, mod.version);
-			await modInstallService.removeModFromProfile(modVersionInfo.file_name, profile.path);
-			await profileService.removeModFromProfile(profileId, mod.mod_id);
-		} catch (e) {
-			queryClient.setQueryData(['profiles'], previousProfiles);
-			showToastError(e);
-		}
+	function cancelDelete() {
+		deleteDialogOpen = false;
+		profileToDelete = null;
 	}
 </script>
 
@@ -98,26 +114,51 @@
 
 	<div class="mb-6">
 		<h2 class="mb-3 text-lg font-semibold">Quick Actions</h2>
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 			<button
 				onclick={handleLaunchVanilla}
-				class="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-4 transition-colors hover:bg-accent/50"
+				disabled={isLaunchingVanilla}
+				class="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-4 text-left transition-colors hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				<div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-					<Ghost class="h-5 w-5 text-primary" />
+				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+					{#if isLaunchingVanilla}
+						<div
+							class="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"
+						></div>
+					{:else}
+						<Ghost class="h-5 w-5 text-primary" />
+					{/if}
 				</div>
-				<div class="text-left">
-					<div class="font-semibold">Launch Vanilla</div>
-					<div class="text-sm text-muted-foreground">Play without any mods</div>
+				<div class="flex min-w-0 flex-1 flex-col">
+					<div class="font-semibold">{isLaunchingVanilla ? 'Launching...' : 'Launch Vanilla'}</div>
+					<div class="truncate text-sm text-muted-foreground">Play without any mods</div>
 				</div>
-				<Play class="ml-auto h-5 w-5" />
+				{#if !isLaunchingVanilla}
+					<Play class="ml-2 h-5 w-5 shrink-0" />
+				{/if}
 			</button>
 		</div>
 	</div>
 
 	<div>
 		<h2 class="mb-3 text-lg font-semibold">Profiles</h2>
-		{#if profiles.length === 0}
+		{#if profilesQuery.isPending}
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+				{#each [1, 2, 3] as i (i)}
+					<div class="space-y-3 rounded-lg border border-border p-4">
+						<Skeleton class="h-6 w-1/2" />
+						<div class="flex gap-4">
+							<Skeleton class="h-4 w-16" />
+							<Skeleton class="h-4 w-20" />
+						</div>
+						<div class="flex justify-end gap-2">
+							<Skeleton class="h-9 w-20" />
+							<Skeleton class="h-9 w-8" />
+						</div>
+					</div>
+				{/each}
+			</div>
+		{:else if profiles.length === 0}
 			<div class="rounded-lg border border-dashed border-border p-12 text-center">
 				<Library class="mx-auto mb-3 h-12 w-12 text-muted-foreground/50" />
 				<h3 class="mb-1 text-lg font-semibold">No profiles yet</h3>
@@ -127,16 +168,36 @@
 				<CreateProfileDialog />
 			</div>
 		{:else}
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
 				{#each profiles as profile (profile.id)}
 					<ProfileCard
 						{profile}
 						onlaunch={() => handleLaunchProfile(profile)}
-						ondelete={() => handleDeleteProfile(profile.id)}
-						onremove={(mod) => handleRemoveMod(profile.id, mod)}
+						ondelete={() => confirmDeleteProfile(profile.id)}
 					/>
 				{/each}
 			</div>
 		{/if}
 	</div>
 </div>
+
+<AlertDialog bind:open={deleteDialogOpen}>
+	<AlertDialogContent>
+		<AlertDialogHeader>
+			<AlertDialogTitle>Delete Profile?</AlertDialogTitle>
+			<AlertDialogDescription>
+				Are you sure you want to delete <strong>{profileToDelete?.name}</strong>? This action cannot
+				be undone and will delete all files associated with this profile.
+			</AlertDialogDescription>
+		</AlertDialogHeader>
+		<AlertDialogFooter>
+			<AlertDialogCancel onclick={cancelDelete}>Cancel</AlertDialogCancel>
+			<AlertDialogAction
+				onclick={handleDeleteProfile}
+				class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+			>
+				Delete Profile
+			</AlertDialogAction>
+		</AlertDialogFooter>
+	</AlertDialogContent>
+</AlertDialog>

@@ -3,6 +3,7 @@ import { join } from '@tauri-apps/api/path';
 import { exists } from '@tauri-apps/plugin-fs';
 import { profileService } from './profile-service';
 import { settingsService } from '../settings/settings-service';
+import { gameState } from './game-state-service.svelte';
 import type { Profile } from './schema';
 
 class LaunchService {
@@ -39,6 +40,7 @@ class LaunchService {
 		});
 
 		await profileService.updateLastLaunched(profile.id);
+		gameState.setRunningProfile(profile.id);
 
 		if (settings.close_on_launch) {
 			const { getCurrentWindow } = await import('@tauri-apps/api/window');
@@ -58,6 +60,7 @@ class LaunchService {
 		}
 
 		await invoke('launch_vanilla', { gameExe: gameExePath });
+		gameState.setRunningProfile(null);
 	}
 }
 

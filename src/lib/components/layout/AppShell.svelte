@@ -10,7 +10,7 @@
 	import StarBackground from '$lib/components/shared/StarBackground.svelte';
 	import { platform } from '@tauri-apps/plugin-os';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
-	import { createQuery } from '@tanstack/svelte-query';
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { launchService } from '$lib/features/profiles/launch-service';
 	import type { Profile } from '$lib/features/profiles/schema';
@@ -54,6 +54,7 @@
 		}
 	}
 
+	const queryClient = useQueryClient();
 	const activeProfileQuery = createQuery(() => profileQueries.active());
 	const activeProfile = $derived((activeProfileQuery.data ?? null) as Profile | null);
 
@@ -65,6 +66,8 @@
 		if (!activeProfile) return;
 		try {
 			await launchService.launchProfile(activeProfile);
+			queryClient.invalidateQueries({ queryKey: ['profiles'] });
+			queryClient.invalidateQueries({ queryKey: ['profiles', 'active'] });
 		} catch (e) {
 			showToastError(e);
 		}
