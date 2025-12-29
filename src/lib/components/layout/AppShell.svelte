@@ -106,25 +106,41 @@
 
 		<!-- Right Side: Spacer for Windows controls or additional tools -->
 		<div data-tauri-drag-region class="ml-auto flex h-full items-center gap-2">
-			{#if activeProfile}
-				<Button
-					data-tauri-drag-region-exclude
-					size="sm"
-					variant="ghost"
-					disabled={gameState.running}
-					onclick={handleLaunchLastUsed}
-					class="gap-2"
-				>
-					<Play class="h-4 w-4 fill-current" />
-					<span class="hidden sm:inline">Launch {activeProfile.name}</span>
+			<Button
+				data-tauri-drag-region-exclude
+				disabled={gameState.running || !activeProfile}
+				onclick={handleLaunchLastUsed}
+				variant="outline"
+				class="gap-2"
+			>
+				<!-- Status Indicator Dot -->
+				<span class="relative flex h-2 w-2 shrink-0">
 					{#if gameState.running}
-						<div class="relative h-2 w-2">
-							<span class="absolute inset-0 animate-ping rounded-full bg-green-500 opacity-75"
-							></span>
-						</div>
+						<span
+							class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75"
+						></span>
+						<span class="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+					{:else}
+						<span class="relative inline-flex h-2 w-2 rounded-full bg-muted-foreground/50"></span>
 					{/if}
-				</Button>
-			{/if}
+				</span>
+
+				<!-- Status Text -->
+				<span class="truncate text-muted-foreground">
+					{#if gameState.running}
+						Running
+					{:else if activeProfile}
+						Launch {activeProfile.name}
+					{:else}
+						No instances running
+					{/if}
+				</span>
+
+				<!-- Launch Icon -->
+				{#if !gameState.running && activeProfile}
+					<Play class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+				{/if}
+			</Button>
 			{#if platformName === 'windows'}
 				<div class="flex h-full">
 					<button aria-label="Minimize" onclick={minimize} class="window-control">
