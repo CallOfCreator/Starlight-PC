@@ -65,7 +65,7 @@
 		profile.last_launched_at ? new Date(profile.last_launched_at).toLocaleDateString() : 'Never'
 	);
 
-	const isRunning = $derived(gameState.running);
+	const isRunning = $derived(gameState.isProfileRunning(profile.id));
 
 	const modIds = $derived(profile.mods.map((m) => m.mod_id));
 	const modsQueries = $derived(modIds.map((id) => createQuery(() => modQueries.byId(id))));
@@ -101,14 +101,6 @@
 						>
 							<Download class="h-3 w-3 animate-pulse" />
 							<span>Installing...</span>
-						</div>
-					{/if}
-					{#if isRunning}
-						<div
-							class="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400"
-						>
-							<Loader2 class="h-3 w-3 animate-spin" />
-							<span>Running</span>
 						</div>
 					{/if}
 				</div>
