@@ -30,6 +30,7 @@ pub fn run() {
             // macOS: Keep native buttons, make bar transparent
             #[cfg(target_os = "macos")]
             {
+                use tauri::TitleBarStyle;
                 win_builder = win_builder
                     .title_bar_style(TitleBarStyle::Transparent)
                     .fullsize_content_view(true);
@@ -65,7 +66,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::profiles_backend::check_among_us_running,
             commands::launch::launch_modded,
             commands::launch::launch_vanilla
         ])

@@ -15,16 +15,22 @@
 	import { launchService } from '$lib/features/profiles/launch-service';
 	import type { Profile } from '$lib/features/profiles/schema';
 	import { showToastError } from '$lib/utils/toast';
+	import { gameState } from '$lib/features/profiles/game-state-service.svelte';
 	import CreateProfileDialog from '$lib/features/profiles/components/CreateProfileDialog.svelte';
+
+	if (browser) {
+		gameState.init();
+	}
 
 	let { children } = $props();
 	const sidebar = setSidebar();
 	let dialogRef = $state({ open: () => {} });
 
+	type TauriWindow = Awaited<ReturnType<typeof getCurrentWindow>>;
+
 	// Detect platform for layout adjustments
 	let platformName = $state<'macos' | 'windows' | 'linux' | 'other'>('other');
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let appWindow = $state<any>(null);
+	let appWindow = $state<TauriWindow | null>(null);
 
 	if (browser && (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
 		try {
@@ -52,6 +58,10 @@
 	const activeProfile = $derived((activeProfileQuery.data ?? null) as Profile | null);
 
 	async function handleLaunchLastUsed() {
+		if (gameState.running) {
+			showToastError(new Error('Among Us is already running'));
+			return;
+		}
 		if (!activeProfile) return;
 		try {
 			await launchService.launchProfile(activeProfile);
@@ -100,18 +110,41 @@
 
 		<!-- Right Side: Spacer for Windows controls or additional tools -->
 		<div data-tauri-drag-region class="ml-auto flex h-full items-center gap-2">
-			{#if activeProfile}
-				<Button
-					data-tauri-drag-region-exclude
-					size="sm"
-					variant="ghost"
-					onclick={handleLaunchLastUsed}
-					class="gap-2"
-				>
-					<Play class="h-4 w-4 fill-current" />
-					<span class="hidden sm:inline">Launch {activeProfile.name}</span>
-				</Button>
-			{/if}
+			<Button
+				data-tauri-drag-region-exclude
+				disabled={gameState.running || !activeProfile}
+				onclick={handleLaunchLastUsed}
+				variant="outline"
+				class="gap-2"
+			>
+				<!-- Status Indicator Dot -->
+				<span class="relative flex h-2 w-2 shrink-0">
+					{#if gameState.running}
+						<span
+							class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75"
+						></span>
+						<span class="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+					{:else}
+						<span class="relative inline-flex h-2 w-2 rounded-full bg-muted-foreground/50"></span>
+					{/if}
+				</span>
+
+				<!-- Status Text -->
+				<span class="truncate text-muted-foreground">
+					{#if gameState.running}
+						Running
+					{:else if activeProfile}
+						Launch {activeProfile.name}
+					{:else}
+						No instances running
+					{/if}
+				</span>
+
+				<!-- Launch Icon -->
+				{#if !gameState.running && activeProfile}
+					<Play class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+				{/if}
+			</Button>
 			{#if platformName === 'windows'}
 				<div class="flex h-full">
 					<button aria-label="Minimize" onclick={minimize} class="window-control">

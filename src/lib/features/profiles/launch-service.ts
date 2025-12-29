@@ -17,9 +17,6 @@ class LaunchService {
 			throw new Error('Among Us.exe not found at configured path');
 		}
 
-		const isRunning = await invoke<boolean>('check_among_us_running');
-		if (isRunning) throw new Error('Among Us is already running');
-
 		const bepinexDll = await join(profile.path, 'BepInEx', 'core', 'BepInEx.Unity.IL2CPP.dll');
 		const bepinexExists = await exists(bepinexDll);
 		if (!bepinexExists) {
@@ -33,17 +30,13 @@ class LaunchService {
 			throw new Error('dotnet runtime not found. Please wait for installation to complete.');
 		}
 
-		try {
-			await invoke('launch_modded', {
-				gameExe: gameExePath, // match 'game_exe'
-				profilePath: profile.path, // match 'profile_path'
-				bepinexDll: bepinexDll, // match 'bepinex_dll'
-				dotnetDir: dotnetDir, // match 'dotnet_dir'
-				coreclrPath: coreClr // match 'coreclr_path'
-			});
-		} catch (error) {
-			throw new Error(error instanceof Error ? error.message : 'Failed to launch Among Us process');
-		}
+		await invoke('launch_modded', {
+			gameExe: gameExePath,
+			profilePath: profile.path,
+			bepinexDll: bepinexDll,
+			dotnetDir: dotnetDir,
+			coreclrPath: coreClr
+		});
 
 		await profileService.updateLastLaunched(profile.id);
 
@@ -64,11 +57,7 @@ class LaunchService {
 			throw new Error('Among Us.exe not found at configured path');
 		}
 
-		try {
-			await invoke('launch_vanilla', { game_exe: gameExePath });
-		} catch (error) {
-			throw new Error(error instanceof Error ? error.message : 'Failed to launch Among Us process');
-		}
+		await invoke('launch_vanilla', { gameExe: gameExePath });
 	}
 }
 

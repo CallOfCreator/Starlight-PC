@@ -4,9 +4,11 @@ version = 3
 
 [[package]]
 name = "Starlight"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "log",
+ "once_cell",
+ "serde",
  "serde_json",
  "sysinfo",
  "tauri",
