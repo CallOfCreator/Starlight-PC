@@ -12,16 +12,6 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
-            Ok(())
-        })
-        .setup(|app| {
             let mut win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("Starlight")
                 .inner_size(800.0, 600.0)
@@ -64,13 +54,19 @@ pub fn run() {
                 }
             }
 
-            Ok(())
-        })
-        .setup(|app| {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 update(handle).await.unwrap();
             });
+
+            if cfg!(debug_assertions) {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
