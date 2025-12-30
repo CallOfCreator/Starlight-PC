@@ -8,7 +8,6 @@ version = "0.0.4"
 dependencies = [
  "home",
  "log",
- "once_cell",
  "serde",
  "serde_json",
  "tauri",

@@ -14,8 +14,8 @@ pub struct GameStatePayload {
 #[cfg(windows)]
 fn set_dll_directory(path: &str) -> Result<(), String> {
     use std::ffi::CString;
-    use windows::core::PCSTR;
     use windows::Win32::System::LibraryLoader::SetDllDirectoryA;
+    use windows::core::PCSTR;
 
     let cstr = CString::new(path).map_err(|e| e.to_string())?;
     unsafe { SetDllDirectoryA(PCSTR(cstr.as_ptr().cast())) }
