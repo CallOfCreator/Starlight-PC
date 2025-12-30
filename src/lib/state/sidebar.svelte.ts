@@ -3,6 +3,7 @@ import { setContext, getContext, type Snippet } from 'svelte';
 class SidebarState {
 	#content = $state<Snippet | null>(null);
 	#isOpen = $state(false);
+	#isMaximized = $state(false);
 	#onCloseCallback: (() => void) | null = null;
 
 	get content() {
@@ -10,6 +11,9 @@ class SidebarState {
 	}
 	get isOpen() {
 		return this.#isOpen;
+	}
+	get isMaximized() {
+		return this.#isMaximized;
 	}
 
 	open(content: Snippet, onClose?: () => void) {
@@ -22,9 +26,14 @@ class SidebarState {
 		this.#isOpen = false;
 	}
 
+	toggleMaximize() {
+		this.#isMaximized = !this.#isMaximized;
+	}
+
 	finalizeClose() {
 		if (!this.#isOpen) {
 			this.#content = null;
+			this.#isMaximized = false;
 			this.#onCloseCallback?.();
 			this.#onCloseCallback = null;
 		}

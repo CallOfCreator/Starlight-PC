@@ -18,45 +18,47 @@
 	import { gameState } from '$lib/features/profiles/game-state-service.svelte';
 	import CreateProfileDialog from '$lib/features/profiles/components/CreateProfileDialog.svelte';
 
-	if (browser) {
-		gameState.init();
-	}
+	type TauriWindow = Awaited<ReturnType<typeof getCurrentWindow>>;
+	type Platform = 'macos' | 'windows' | 'linux' | 'other';
 
 	let { children } = $props();
+
 	const sidebar = setSidebar();
+	const queryClient = useQueryClient();
+	const activeProfileQuery = createQuery(() => profileQueries.active());
+
 	let dialogRef = $state({ open: () => {} });
-
-	type TauriWindow = Awaited<ReturnType<typeof getCurrentWindow>>;
-
-	// Detect platform for layout adjustments
-	let platformName = $state<'macos' | 'windows' | 'linux' | 'other'>('other');
+	let platformName = $state<Platform>('other');
 	let appWindow = $state<TauriWindow | null>(null);
 
-	if (browser && (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
-		try {
-			const osType = platform();
-			if (osType === 'macos') platformName = 'macos';
-			else if (osType === 'windows') platformName = 'windows';
-			else platformName = 'linux';
+	const activeProfile = $derived(activeProfileQuery.data as Profile | null);
+	const sidebarWidth = $derived(sidebar.isMaximized ? '100%' : '400px');
+	const canLaunch = $derived(!gameState.running && activeProfile);
 
+	// Initialize browser-only features
+	if (browser) {
+		gameState.init();
+		initTauri();
+	}
+
+	function initTauri() {
+		const tauriWindow = window as Window & { __TAURI_INTERNALS__?: unknown };
+		if (!tauriWindow.__TAURI_INTERNALS__) return;
+
+		try {
+			const os = platform();
+			platformName = os === 'macos' || os === 'windows' ? os : 'linux';
 			appWindow = getCurrentWindow();
 		} catch (e) {
 			console.error('Failed to initialize Tauri APIs:', e);
 		}
 	}
-	const minimize = () => appWindow?.minimize();
-	const toggleMaximize = () => appWindow?.toggleMaximize();
-	const close = () => appWindow?.close();
 
 	function handleTransitionEnd(e: TransitionEvent) {
-		if (e.propertyName === 'grid-template-columns' && !sidebar.isOpen) {
+		if (e.propertyName === 'width' && !sidebar.isOpen) {
 			sidebar.finalizeClose();
 		}
 	}
-
-	const queryClient = useQueryClient();
-	const activeProfileQuery = createQuery(() => profileQueries.active());
-	const activeProfile = $derived((activeProfileQuery.data ?? null) as Profile | null);
 
 	async function handleLaunchLastUsed() {
 		if (gameState.running) {
@@ -64,6 +66,7 @@
 			return;
 		}
 		if (!activeProfile) return;
+
 		try {
 			await launchService.launchProfile(activeProfile);
 			queryClient.invalidateQueries({ queryKey: ['profiles'] });
@@ -74,33 +77,20 @@
 	}
 </script>
 
-<div
-	class="app-shell relative isolate grid h-screen auto-rows-[auto_1fr] grid-cols-[auto_1fr] overflow-hidden bg-card
-		[--left-bar-width:4rem] [--right-bar-width:300px] [--top-bar-height:3rem]
-		[grid-template-areas:'status_status'_'nav_dummy']"
->
+<div class="app-shell" class:macos={platformName === 'macos'}>
 	<!-- Star background -->
-	<div class="star-container pointer-events-none absolute inset-0 z-5 opacity-80">
+	<div class="star-container">
 		<StarBackground />
 	</div>
 
 	<!-- Top Status Bar -->
-	<div
-		data-tauri-drag-region
-		class="relative z-10 flex h-(--top-bar-height) items-center bg-card/80 [grid-area:status]
-			{platformName === 'macos' ? 'pl-[75px]' : ''}"
-	>
-		<!-- Left Side: Logo/Brand -->
-		<div data-tauri-drag-region class="flex items-center gap-2 p-5">
+	<header data-tauri-drag-region class="top-bar">
+		<div data-tauri-drag-region class="logo">
 			<StarlightIcon class="h-6 w-6" />
 		</div>
 
-		<!-- Center-Left: Navigation Controls -->
-		<div data-tauri-drag-region class="flex items-center gap-1">
-			<div
-				data-tauri-drag-region-exclude
-				class="mr-4 flex items-center gap-1 rounded-full bg-border"
-			>
+		<nav data-tauri-drag-region class="nav-controls">
+			<div data-tauri-drag-region-exclude class="nav-arrows">
 				<Button variant="navigation" aria-label="Go back" onclick={() => history.back()}>
 					<ArrowLeft />
 				</Button>
@@ -109,31 +99,26 @@
 				</Button>
 			</div>
 			<AutoBreadcrumb homeIcon={House} maxItems={4} />
-		</div>
+		</nav>
 
-		<!-- Right Side: Spacer for Windows controls or additional tools -->
-		<div data-tauri-drag-region class="ml-auto flex h-full items-center gap-2">
+		<div data-tauri-drag-region class="top-bar-actions">
 			<Button
 				data-tauri-drag-region-exclude
-				disabled={gameState.running || !activeProfile}
+				disabled={!canLaunch}
 				onclick={handleLaunchLastUsed}
 				variant="outline"
 				class="gap-2"
 			>
-				<!-- Status Indicator Dot -->
-				<span class="relative flex h-2 w-2 shrink-0">
+				<span class="status-dot">
 					{#if gameState.running}
-						<span
-							class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75"
-						></span>
-						<span class="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+						<span class="ping"></span>
+						<span class="dot active"></span>
 					{:else}
-						<span class="relative inline-flex h-2 w-2 rounded-full bg-muted-foreground/50"></span>
+						<span class="dot"></span>
 					{/if}
 				</span>
 
-				<!-- Status Text -->
-				<span class="truncate text-muted-foreground">
+				<span class="status-text">
 					{#if gameState.running}
 						Running
 					{:else if activeProfile}
@@ -143,65 +128,65 @@
 					{/if}
 				</span>
 
-				<!-- Launch Icon -->
-				{#if !gameState.running && activeProfile}
+				{#if canLaunch}
 					<Play class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 				{/if}
 			</Button>
+
 			{#if platformName === 'windows'}
-				<div class="flex h-full">
-					<button aria-label="Minimize" onclick={minimize} class="window-control">
-						<svg width="10" height="1" viewBox="0 0 10 1"
-							><path d="M0 0h10v1H0z" fill="currentColor" /></svg
-						>
+				<div class="window-controls">
+					<button aria-label="Minimize" onclick={() => appWindow?.minimize()}>
+						<svg width="10" height="1"><path d="M0 0h10v1H0z" fill="currentColor" /></svg>
 					</button>
-					<button aria-label="Maximize" onclick={toggleMaximize} class="window-control">
-						<svg width="10" height="10" viewBox="0 0 10 10"
-							><path d="M0 0v10h10V0H0zm9 1v8H1V1h8z" fill="currentColor" /></svg
-						>
+					<button aria-label="Maximize" onclick={() => appWindow?.toggleMaximize()}>
+						<svg width="10" height="10">
+							<path d="M0 0v10h10V0H0zm9 1v8H1V1h8z" fill="currentColor" />
+						</svg>
 					</button>
-					<button aria-label="Close" onclick={close} class="window-control hover:bg-red-500!">
-						<svg width="10" height="10" viewBox="0 0 10 10"
-							><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" fill="none" /></svg
-						>
+					<button aria-label="Close" onclick={() => appWindow?.close()} class="close">
+						<svg width="10" height="10">
+							<path d="M0 0l10 10M10 0L0 10" stroke="currentColor" fill="none" />
+						</svg>
 					</button>
 				</div>
 			{/if}
 		</div>
-	</div>
+	</header>
 
 	<!-- Left Navigation Bar -->
-	<nav
-		class="relative z-10 flex w-(--left-bar-width) flex-col gap-2 overflow-visible bg-card/80 p-2 pt-0 [grid-area:nav]"
-	>
-		<NavButton to="/" isPrimary={(page) => page.url.pathname === '/'} tooltip="Home">
+	<nav class="side-nav">
+		<NavButton to="/" isPrimary={(p) => p.url.pathname === '/'} tooltip="Home">
 			<House class="h-6 w-6" />
 		</NavButton>
 		<NavButton
 			to="/explore"
-			isPrimary={(page) => page.url.pathname.startsWith('/explore')}
+			isPrimary={(p) => p.url.pathname.startsWith('/explore')}
 			tooltip="Explore Mods"
 		>
 			<Compass class="h-6 w-6" />
 		</NavButton>
 		<NavButton
 			to="/library"
-			isPrimary={(page) => page.url.pathname.startsWith('/library')}
+			isPrimary={(p) => p.url.pathname.startsWith('/library')}
 			tooltip="Your Library"
 		>
 			<Library class="h-6 w-6" />
 		</NavButton>
-		<div class="mx-auto my-2 h-px w-6 bg-accent"></div>
+
+		<div class="nav-divider"></div>
+
 		<NavButton to={() => dialogRef.open()} tooltip="Create New">
 			<Plus class="h-6 w-6" />
 		</NavButton>
 		<div class="hidden">
 			<CreateProfileDialog {dialogRef} />
 		</div>
-		<div class="flex grow"></div>
+
+		<div class="grow"></div>
+
 		<NavButton
 			to="/settings"
-			isPrimary={(page) => page.url.pathname.startsWith('/settings')}
+			isPrimary={(p) => p.url.pathname.startsWith('/settings')}
 			tooltip="Settings"
 		>
 			<Settings class="h-6 w-6" />
@@ -209,37 +194,42 @@
 	</nav>
 
 	<!-- Main Content Area -->
-	<div
-		class="absolute inset-0 top-(--top-bar-height) left-(--left-bar-width) z-1 grid h-[calc(100vh-var(--top-bar-height))] overflow-hidden rounded-tl-xl bg-background
-			transition-[grid-template-columns] duration-400 ease-in-out
-			{sidebar.isOpen ? 'grid-cols-[1fr_var(--right-bar-width)]' : 'grid-cols-[1fr_0px]'}"
-		ontransitionend={handleTransitionEnd}
-	>
-		<div class="scrollbar-styled relative h-full grow overflow-y-auto">
-			<div
-				id="background-teleport-target"
-				class="absolute -z-10 h-full w-[calc(100%-var(--right-bar-width))] overflow-hidden rounded-tl-xl"
-			></div>
-			{@render children?.()}
-		</div>
+	<main class="content-area">
+		<div class="scrollbar-styled content-scroll">
+			<div id="background-teleport-target" class="background-target"></div>
 
-		<!-- Right Sidebar -->
-		<div
-			class="app-sidebar relative mt-px flex shrink-0 flex-col overflow-hidden border-l border-border bg-muted"
-			style="width: var(--right-bar-width);"
-		>
-			<div class="scrollbar-styled relative grow overflow-y-auto">
-				{#if sidebar.content}
-					{@render sidebar.content()}
-				{/if}
+			<div class="content-wrapper" style:padding-right={sidebar.isOpen ? sidebarWidth : '0px'}>
+				{@render children?.()}
 			</div>
 		</div>
-	</div>
+
+		<!-- Sidebar -->
+		<aside
+			class="app-sidebar"
+			style:width={sidebar.isOpen ? sidebarWidth : '0px'}
+			ontransitionend={handleTransitionEnd}
+		>
+			<div class="scrollbar-styled sidebar-scroll">
+				<div class="sidebar-content" style:width={sidebarWidth} style:min-width={sidebarWidth}>
+					{#if sidebar.content}
+						{@render sidebar.content()}
+					{/if}
+				</div>
+			</div>
+		</aside>
+	</main>
 </div>
 
 <style lang="postcss">
 	@reference "$lib/../app.css";
 
+	/* CSS Variables */
+	.app-shell {
+		--left-bar-width: 4rem;
+		--top-bar-height: 3rem;
+	}
+
+	/* Tauri drag regions */
 	[data-tauri-drag-region] {
 		-webkit-app-region: drag;
 	}
@@ -247,7 +237,33 @@
 		-webkit-app-region: no-drag;
 	}
 
+	/* Shell Layout */
+	.app-shell {
+		@apply relative isolate grid h-screen overflow-hidden bg-card;
+		grid-template-rows: auto 1fr;
+		grid-template-columns: auto 1fr;
+		grid-template-areas:
+			'status status'
+			'nav main';
+
+		&::after {
+			content: '';
+			@apply pointer-events-none fixed z-2;
+			inset: var(--top-bar-height) 0 0 var(--left-bar-width);
+			border-radius: var(--radius-xl) 0 0 0;
+			box-shadow:
+				inset 1px 1px 15px rgba(0, 0, 0, 0.1),
+				inset 1px 1px 1px rgba(255, 255, 255, 0.1);
+		}
+
+		&.macos .top-bar {
+			padding-left: 75px;
+		}
+	}
+
+	/* Star Background */
 	.star-container {
+		@apply pointer-events-none absolute inset-0 z-5 opacity-80;
 		clip-path: polygon(
 			0 0,
 			100vw 0,
@@ -258,20 +274,107 @@
 		);
 	}
 
-	.app-shell::after {
-		content: '';
-		position: fixed;
-		z-index: 2;
-		pointer-events: none;
-		inset: var(--top-bar-height) 0 0 var(--left-bar-width);
-		border-radius: var(--radius-xl) 0 0 0;
-		box-shadow:
-			inset 1px 1px 15px rgba(0, 0, 0, 0.1),
-			inset 1px 1px 1px rgba(255, 255, 255, 0.1);
+	/* Top Bar */
+	.top-bar {
+		@apply relative z-10 flex items-center bg-card/80;
+		height: var(--top-bar-height);
+		grid-area: status;
 	}
 
-	.window-control {
-		@apply flex h-full w-[45px] items-center justify-center transition-colors hover:bg-white/10;
-		-webkit-app-region: no-drag;
+	.logo {
+		@apply flex items-center gap-2 p-5;
+	}
+
+	.nav-controls {
+		@apply flex items-center gap-1;
+	}
+
+	.nav-arrows {
+		@apply mr-4 flex items-center gap-1 rounded-full bg-border;
+	}
+
+	.top-bar-actions {
+		@apply ml-auto flex h-full items-center gap-2;
+	}
+
+	/* Status Button Elements */
+	.status-dot {
+		@apply relative flex h-2 w-2 shrink-0;
+	}
+
+	.ping {
+		@apply absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75;
+	}
+
+	.dot {
+		@apply relative inline-flex h-2 w-2 rounded-full bg-muted-foreground/50;
+
+		&.active {
+			@apply bg-green-500;
+		}
+	}
+
+	.status-text {
+		@apply truncate text-muted-foreground;
+	}
+
+	/* Window Controls (Windows) */
+	.window-controls {
+		@apply flex h-full;
+
+		button {
+			@apply flex h-full w-[45px] items-center justify-center transition-colors hover:bg-white/10;
+			-webkit-app-region: no-drag;
+
+			&.close:hover {
+				@apply bg-red-500;
+			}
+		}
+	}
+
+	/* Side Navigation */
+	.side-nav {
+		@apply relative z-10 flex flex-col gap-2 overflow-visible bg-card/80 p-2 pt-0;
+		width: var(--left-bar-width);
+		grid-area: nav;
+	}
+
+	.nav-divider {
+		@apply mx-auto my-2 h-px w-6 bg-accent;
+	}
+
+	/* Main Content Area */
+	.content-area {
+		@apply absolute inset-0 z-1 overflow-hidden rounded-tl-xl bg-background;
+		top: var(--top-bar-height);
+		left: var(--left-bar-width);
+	}
+
+	.content-scroll {
+		@apply relative h-full w-full overflow-y-auto;
+	}
+
+	.background-target {
+		@apply absolute inset-0 -z-10 overflow-hidden rounded-tl-xl;
+	}
+
+	.content-wrapper {
+		@apply h-full transition-[padding] duration-400 ease-in-out;
+	}
+
+	/* Sidebar */
+	.app-sidebar {
+		@apply absolute top-0 right-0 z-50 flex h-full flex-col items-end overflow-hidden;
+		@apply border-l border-border bg-muted transition-[width] duration-400 ease-in-out;
+		will-change: width;
+	}
+
+	.sidebar-scroll {
+		@apply flex h-full w-full flex-col items-end overflow-y-auto;
+		will-change: padding-right;
+	}
+
+	.sidebar-content {
+		@apply h-full transition-[width,min-width] duration-400 ease-in-out;
 	}
 </style>

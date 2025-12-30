@@ -5,6 +5,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import {
 		Play,
+		Plus,
 		FolderOpen,
 		Trash2,
 		Calendar,
@@ -23,6 +24,7 @@
 	import { gameState } from '../game-state-service.svelte';
 	import { profileService } from '../profile-service';
 	import { queryClient } from '$lib/state/queryClient';
+	import { goto } from '$app/navigation';
 
 	let {
 		profile,
@@ -157,11 +159,15 @@
 				<Button size="sm" onclick={onlaunch} disabled={isDisabled}>
 					{#if isRunning}
 						<LoaderCircle class="size-4 animate-spin" />
-						<span class="hidden @md:inline">Running</span>
+						<span>Running</span>
 					{:else}
 						<Play class="size-4 fill-current" />
-						<span class="hidden @md:inline">Launch</span>
+						<span>Launch</span>
 					{/if}
+				</Button>
+
+				<Button size="sm" onclick={() => goto('/explore')} aria-label="Install mods">
+					<Plus class="size-4" />
 				</Button>
 
 				<DropdownMenu.Root>
