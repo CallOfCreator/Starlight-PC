@@ -12,11 +12,17 @@
 	const queryClient = useQueryClient();
 
 	let open = $state(false);
-	let { dialogRef }: { dialogRef?: { open: () => void } } = $props();
+	let { onReady }: { onReady?: (open: () => void) => void } = $props();
 	let name = $state('');
 	let isCreating = $state(false);
 	let error = $state('');
 	let pollTimer: number | null = null;
+
+	$effect(() => {
+		onReady?.(() => {
+			open = true;
+		});
+	});
 
 	async function waitForBepInEx(profileId: string) {
 		const checkInterval = 2000;
@@ -68,12 +74,6 @@
 				pollTimer = null;
 			}
 		}
-	}
-
-	if (dialogRef) {
-		dialogRef.open = () => {
-			open = true;
-		};
 	}
 </script>
 

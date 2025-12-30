@@ -27,7 +27,7 @@
 	const queryClient = useQueryClient();
 	const activeProfileQuery = createQuery(() => profileQueries.active());
 
-	let dialogRef = $state({ open: () => {} });
+	let openCreateDialog: () => void = () => {};
 	let platformName = $state<Platform>('other');
 	let appWindow = $state<TauriWindow | null>(null);
 
@@ -175,11 +175,11 @@
 
 		<div class="nav-divider"></div>
 
-		<NavButton to={() => dialogRef.open()} tooltip="Create New">
+		<NavButton to={() => openCreateDialog()} tooltip="Create New">
 			<Plus class="h-6 w-6" />
 		</NavButton>
 		<div class="hidden">
-			<CreateProfileDialog {dialogRef} />
+			<CreateProfileDialog onReady={(fn) => (openCreateDialog = fn)} />
 		</div>
 
 		<div class="grow"></div>
