@@ -9,7 +9,7 @@
 	import { Library, Play } from '@lucide/svelte';
 	import StarBackground from '$lib/components/shared/StarBackground.svelte';
 	import { platform } from '@tauri-apps/plugin-os';
-	import { getCurrentWindow } from '@tauri-apps/api/window';
+	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { launchService } from '$lib/features/profiles/launch-service';
