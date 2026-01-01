@@ -4,7 +4,7 @@ import { exists } from '@tauri-apps/plugin-fs';
 import { profileService } from './profile-service';
 import { settingsService } from '../settings/settings-service';
 import { gameState } from './game-state-service.svelte';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { epicService } from './epic-service';
 import type { Profile } from './schema';
 
 class LaunchService {
@@ -32,7 +32,9 @@ class LaunchService {
 			throw new Error('dotnet runtime not found. Please wait for installation to complete.');
 		}
 
-		await loginToEpic();
+		if (settings.game_platform === 'epic') {
+			await epicService.ensureLoggedIn();
+		}
 
 		await invoke('launch_modded', {
 			gameExe: gameExePath,
@@ -65,27 +67,6 @@ class LaunchService {
 		await invoke('launch_vanilla', { gameExe: gameExePath });
 		gameState.setRunningProfile(null);
 	}
-}
-
-async function loginToEpic() {
-	// Try to restore existing session first
-	const restored = await invoke<boolean>('epic_try_restore_session');
-	if (restored) {
-		console.log('Session restored!');
-		return;
-	}
-
-	// Open browser for login
-	const url = await invoke<string>('get_epic_auth_url');
-	console.log(`Opening URL: ${url}`);
-	await openUrl(url);
-
-	// User pastes the code from browser
-	const code = prompt('Enter the authorization code:');
-	if (!code) return;
-
-	await invoke('epic_login_with_code', { code });
-	console.log('Logged in!');
 }
 
 export const launchService = new LaunchService();

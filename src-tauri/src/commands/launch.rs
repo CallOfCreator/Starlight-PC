@@ -75,16 +75,6 @@ pub async fn launch_modded<R: Runtime>(
     coreclr_path: String,
     state: State<'_, EpicState>,
 ) -> Result<(), String> {
-    let session = state
-        .session
-        .lock()
-        .unwrap()
-        .clone()
-        .ok_or("Not logged into Epic Games")?;
-
-    let api = EpicApi::new();
-    let launch_token = api.get_game_token(&session).await?;
-
     let game_dir = PathBuf::from(&game_exe);
     let game_dir = game_dir.parent().ok_or("Invalid game path")?;
 
@@ -93,11 +83,18 @@ pub async fn launch_modded<R: Runtime>(
 
     let mut cmd = Command::new(&game_exe);
     cmd.current_dir(game_dir)
-        .arg(format!("-AUTH_PASSWORD={}", launch_token))
         .args(["--doorstop-enabled", "true"])
         .args(["--doorstop-target-assembly", &bepinex_dll])
         .args(["--doorstop-clr-corlib-dir", &dotnet_dir])
         .args(["--doorstop-clr-runtime-coreclr-path", &coreclr_path]);
+
+    let session = state.session.lock().unwrap().clone();
+
+    if let Some(session) = session {
+        let api = EpicApi::new();
+        let launch_token = api.get_game_token(&session).await?;
+        cmd.arg(format!("-AUTH_PASSWORD={}", launch_token));
+    }
 
     launch(app, cmd)
 }

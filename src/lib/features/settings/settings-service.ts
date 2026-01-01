@@ -10,7 +10,8 @@ class SettingsService {
 					'https://builds.bepinex.dev/projects/bepinex_be/738/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.738%2Baf0cba7.zip',
 				bepinex_version: '6.0.0-be.738',
 				among_us_path: '',
-				close_on_launch: false
+				close_on_launch: false,
+				game_platform: 'steam'
 			}
 		);
 	}

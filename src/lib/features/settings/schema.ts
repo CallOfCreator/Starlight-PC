@@ -4,7 +4,9 @@ export const Settings = type({
 	bepinex_url: 'string',
 	bepinex_version: 'string',
 	among_us_path: 'string',
-	close_on_launch: 'boolean'
+	close_on_launch: 'boolean',
+	game_platform: "'steam' | 'epic'"
 });
 
 export type AppSettings = typeof Settings.infer;
+export type GamePlatform = 'steam' | 'epic';

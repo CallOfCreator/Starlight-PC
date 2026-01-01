@@ -78,6 +78,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::finder::detect_among_us,
+            commands::finder::get_game_platform,
             commands::launch::launch_modded,
             commands::launch::launch_vanilla,
             commands::epic_commands::get_epic_auth_url,

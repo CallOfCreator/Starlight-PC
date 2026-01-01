@@ -8,22 +8,29 @@
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { settingsQueries } from '$lib/features/settings/queries';
 	import { settingsService } from '$lib/features/settings/settings-service';
-	import type { AppSettings } from '$lib/features/settings/schema';
+	import type { AppSettings, GamePlatform } from '$lib/features/settings/schema';
 	import { showToastError, showToastSuccess } from '$lib/utils/toast';
 	import { invoke } from '@tauri-apps/api/core';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
 	import { exists } from '@tauri-apps/plugin-fs';
+	import EpicLoginDialog from '$lib/features/profiles/components/EpicLoginDialog.svelte';
+	import { epicQueries } from '$lib/features/profiles/epic-queries';
 
 	const settingsQuery = createQuery(() => settingsQueries.get());
 	const settings = $derived(settingsQuery.data as AppSettings | undefined);
 	const queryClient = useQueryClient();
 
+	const isLoggedInQuery = createQuery(() => epicQueries.isLoggedIn());
+	const isLoggedIn = $derived(isLoggedInQuery.data ?? false);
+
 	let localAmongUsPath = $state('');
 	let localBepInExUrl = $state('');
 	let localBepInExVersion = $state('');
 	let localCloseOnLaunch = $state(false);
+	let localGamePlatform = $state<GamePlatform>('steam');
 	let isSaving = $state(false);
 	let isDetecting = $state(false);
+	let epicLoginOpen = $state(false);
 
 	$effect(() => {
 		if (settings) {
@@ -31,6 +38,7 @@
 			localBepInExUrl = settings.bepinex_url ?? '';
 			localBepInExVersion = settings.bepinex_version ?? '';
 			localCloseOnLaunch = settings.close_on_launch ?? false;
+			localGamePlatform = settings.game_platform ?? 'steam';
 		}
 	});
 
@@ -49,7 +57,8 @@
 				among_us_path: localAmongUsPath,
 				bepinex_url: localBepInExUrl,
 				bepinex_version: localBepInExVersion,
-				close_on_launch: localCloseOnLaunch
+				close_on_launch: localCloseOnLaunch,
+				game_platform: localGamePlatform
 			});
 			await handleAutoSetBepinex();
 			queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -67,6 +76,8 @@
 			const path = await invoke<string | null>('detect_among_us');
 			if (path) {
 				localAmongUsPath = path;
+				const platform = await invoke<string>('get_game_platform', { path });
+				localGamePlatform = platform as GamePlatform;
 				showToastSuccess('Among Us path detected successfully');
 			} else {
 				showToastError('Could not auto-detect Among Us installation');
@@ -170,6 +181,33 @@
 							The folder where Among Us is installed (contains "Among Us.exe")
 						</p>
 					</div>
+
+					<div class="space-y-2">
+						<Label for="game-platform">Game Platform</Label>
+						<div class="flex gap-2">
+							<Button
+								variant={localGamePlatform === 'steam' ? 'default' : 'outline'}
+								onclick={() => (localGamePlatform = 'steam')}
+								class="flex-1"
+							>
+								Steam
+							</Button>
+							<Button
+								variant={localGamePlatform === 'epic' ? 'default' : 'outline'}
+								onclick={() => (localGamePlatform = 'epic')}
+								class="flex-1"
+							>
+								Epic Games
+							</Button>
+						</div>
+						<p class="text-sm text-muted-foreground">
+							{#if localGamePlatform === 'steam'}
+								Steam installation
+							{:else}
+								Epic Games installation (requires Epic Games login)
+							{/if}
+						</p>
+					</div>
 				</div>
 			</div>
 
@@ -201,12 +239,45 @@
 					<div class="space-y-0.5">
 						<Label for="close-on-launch">Close on Launch</Label>
 						<p class="text-sm text-muted-foreground">
-							Automatically close the launcher after launching the game
+							Automatically close launcher after launching game
 						</p>
 					</div>
 					<Switch id="close-on-launch" bind:checked={localCloseOnLaunch} />
 				</div>
 			</div>
+
+			{#if localGamePlatform === 'epic'}
+				<div class="rounded-lg border border-border p-6">
+					<h2 class="mb-4 text-lg font-semibold">Epic Games Account</h2>
+					<div class="space-y-4">
+						<div class="flex items-center justify-between">
+							<div class="space-y-0.5">
+								<p class="font-medium">Account Status</p>
+								<p class="text-sm text-muted-foreground">
+									{#if isLoggedIn}
+										<span class="text-green-500">Logged in</span>
+									{:else}
+										<span class="text-orange-500">Not logged in</span>
+									{/if}
+								</p>
+							</div>
+							<Button variant="outline" onclick={() => (epicLoginOpen = true)}>
+								{#if isLoggedIn}
+									Manage Account
+								{:else}
+									Login to Epic Games
+								{/if}
+							</Button>
+						</div>
+						{#if !isLoggedIn}
+							<p class="text-sm text-muted-foreground">
+								You must login to your Epic Games account to launch the Epic Games version of Among
+								Us. Your session will be saved and restored automatically.
+							</p>
+						{/if}
+					</div>
+				</div>
+			{/if}
 
 			<div class="flex justify-end gap-2">
 				<Button onclick={handleSave} disabled={isSaving}>
@@ -221,3 +292,5 @@
 		</div>
 	{/if}
 </div>
+
+<EpicLoginDialog bind:open={epicLoginOpen} />

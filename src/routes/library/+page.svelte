@@ -15,6 +15,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { profileQueries } from '$lib/features/profiles/queries';
+	import { settingsQueries } from '$lib/features/settings/queries';
 	import { launchService } from '$lib/features/profiles/launch-service';
 	import { profileService } from '$lib/features/profiles/profile-service';
 	import type { Profile } from '$lib/features/profiles/schema';
@@ -23,6 +24,8 @@
 	const queryClient = useQueryClient();
 	const profilesQuery = createQuery(() => profileQueries.all());
 	const profiles = $derived((profilesQuery.data ?? []) as Profile[]);
+	const settingsQuery = createQuery(() => settingsQueries.get());
+	const settings = $derived(settingsQuery.data);
 
 	let deleteDialogOpen = $state(false);
 	let profileToDelete = $state<Profile | null>(null);
@@ -130,7 +133,21 @@
 					{/if}
 				</div>
 				<div class="flex min-w-0 flex-1 flex-col">
-					<div class="font-semibold">{isLaunchingVanilla ? 'Launching...' : 'Launch Vanilla'}</div>
+					<div class="flex items-center gap-2">
+						<div class="font-semibold">
+							{isLaunchingVanilla ? 'Launching...' : 'Launch Vanilla'}
+						</div>
+						{#if settings?.game_platform}
+							<span
+								class="rounded-full px-2 py-0.5 text-xs font-medium {settings.game_platform ===
+								'epic'
+									? 'bg-purple-500/20 text-purple-300'
+									: 'bg-blue-500/20 text-blue-300'}"
+							>
+								{settings.game_platform === 'epic' ? 'Epic Games' : 'Steam'}
+							</span>
+						{/if}
+					</div>
 					<div class="truncate text-sm text-muted-foreground">Play without any mods</div>
 				</div>
 				{#if !isLaunchingVanilla}
