@@ -4,7 +4,7 @@ import { exists } from '@tauri-apps/plugin-fs';
 import { profileService } from './profile-service';
 import { settingsService } from '../settings/settings-service';
 import { gameState } from './game-state-service.svelte';
-import { epicService } from './epic-service';
+import { epicService } from '$lib/features/settings/epic-service';
 import type { Profile } from './schema';
 
 class LaunchService {

@@ -2,6 +2,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { invoke } from '@tauri-apps/api/core';
+	import type { GamePlatform } from '../schema';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
 	import { exists } from '@tauri-apps/plugin-fs';
 
@@ -30,6 +31,16 @@
 			}
 		} catch {
 			error = 'Failed to detect path';
+		}
+	}
+
+	async function detectAndSetPlatform(path: string) {
+		try {
+			const platform = await invoke<string>('get_game_platform', { path });
+			const { settingsService } = await import('../settings-service');
+			await settingsService.updateSettings({ game_platform: platform as GamePlatform });
+		} catch {
+			// Fallback to steam if detection fails
 		}
 	}
 
@@ -77,6 +88,7 @@
 
 			const { settingsService } = await import('../settings-service');
 			await settingsService.updateSettings({ among_us_path: selectedPath });
+			await detectAndSetPlatform(selectedPath);
 			await handleAutoSetBepinex();
 			open = false;
 		} catch (e) {
