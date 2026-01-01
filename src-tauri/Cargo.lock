@@ -7,7 +7,6 @@ name = "Starlight"
 version = "0.0.5"
 dependencies = [
  "base64 0.22.1",
- "dirs",
  "flate2",
  "home",
  "keyring",
@@ -25,7 +24,6 @@ dependencies = [
  "tauri-plugin-os",
  "tauri-plugin-store",
  "tauri-plugin-updater",
- "tokio",
  "urlencoding",
  "windows 0.58.0",
  "winreg 0.52.0",
@@ -2195,6 +2193,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
 dependencies = [
  "byteorder",
+ "linux-keyutils",
  "log",
  "windows-sys 0.60.2",
  "zeroize",
@@ -2267,6 +2266,16 @@ dependencies = [
  "bitflags 2.10.0",
  "libc",
  "redox_syscall",
+]
+
+[[package]]
+name = "linux-keyutils"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "761e49ec5fd8a5a463f9b84e877c373d888935b71c6be78f3767fe2ae6bed18e"
+dependencies = [
+ "bitflags 2.10.0",
+ "libc",
 ]
 
 [[package]]
