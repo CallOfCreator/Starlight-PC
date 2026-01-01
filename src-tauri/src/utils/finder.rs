@@ -5,10 +5,16 @@ use std::path::{Path, PathBuf};
 use winreg::{RegKey, enums::*};
 
 const AMONG_US_EXE: &str = "Among Us.exe";
+const EPIC_FOLDER: &str = "Among Us_Data/StreamingAssets/aa/EGS";
 
 /// Checks if the directory exists and contains the Among Us executable.
 fn verify_among_us_directory(path: &Path) -> bool {
     path.is_dir() && path.join(AMONG_US_EXE).is_file()
+}
+
+/// Checks if the directory contains Epic Games indicator (Among Us_Data\StreamingAssets\aa\EGS folder).
+fn is_epic_installation(path: &Path) -> bool {
+    path.join(EPIC_FOLDER).is_dir()
 }
 
 #[cfg(target_os = "windows")]
@@ -88,4 +94,19 @@ pub fn get_among_us_paths() -> Vec<PathBuf> {
 
     info!("Among Us installation not detected");
     Vec::new()
+}
+
+/// Detects the game platform for a given path.
+pub fn detect_platform(path: &str) -> Result<String, String> {
+    let path = PathBuf::from(path);
+
+    if !verify_among_us_directory(&path) {
+        return Err("Invalid Among Us installation directory".to_string());
+    }
+
+    if is_epic_installation(&path) {
+        Ok("epic".to_string())
+    } else {
+        Ok("steam".to_string())
+    }
 }

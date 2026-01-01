@@ -1,3 +1,4 @@
+use crate::utils::epic_api::{self, EpicApi};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::{LazyLock, Mutex};
@@ -64,7 +65,7 @@ fn launch<R: Runtime>(app: AppHandle<R>, mut cmd: Command) -> Result<(), String>
 }
 
 #[tauri::command]
-pub fn launch_modded<R: Runtime>(
+pub async fn launch_modded<R: Runtime>(
     app: AppHandle<R>,
     game_exe: String,
     _profile_path: String,
@@ -84,6 +85,12 @@ pub fn launch_modded<R: Runtime>(
         .args(["--doorstop-target-assembly", &bepinex_dll])
         .args(["--doorstop-clr-corlib-dir", &dotnet_dir])
         .args(["--doorstop-clr-runtime-coreclr-path", &coreclr_path]);
+
+    if let Some(session) = epic_api::load_session() {
+        let api = EpicApi::new()?;
+        let launch_token = api.get_game_token(&session).await?;
+        cmd.arg(format!("-AUTH_PASSWORD={}", launch_token));
+    }
 
     launch(app, cmd)
 }

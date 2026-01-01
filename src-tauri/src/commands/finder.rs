@@ -1,4 +1,4 @@
-use crate::utils::finder::get_among_us_paths;
+use crate::utils::finder::{detect_platform, get_among_us_paths};
 
 #[tauri::command]
 pub fn detect_among_us() -> Result<String, String> {
@@ -8,4 +8,9 @@ pub fn detect_among_us() -> Result<String, String> {
         .first()
         .map(|path| path.to_string_lossy().to_string())
         .ok_or_else(|| "Among Us installation not found".to_string())
+}
+
+#[tauri::command]
+pub fn get_game_platform(path: String) -> Result<String, String> {
+    detect_platform(&path)
 }

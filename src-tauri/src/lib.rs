@@ -73,8 +73,14 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::finder::detect_among_us,
+            commands::finder::get_game_platform,
             commands::launch::launch_modded,
-            commands::launch::launch_vanilla
+            commands::launch::launch_vanilla,
+            commands::epic_commands::get_epic_auth_url,
+            commands::epic_commands::epic_login_with_code,
+            commands::epic_commands::epic_try_restore_session,
+            commands::epic_commands::epic_logout,
+            commands::epic_commands::epic_is_logged_in,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

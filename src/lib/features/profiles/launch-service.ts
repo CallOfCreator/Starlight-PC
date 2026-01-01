@@ -4,6 +4,7 @@ import { exists } from '@tauri-apps/plugin-fs';
 import { profileService } from './profile-service';
 import { settingsService } from '../settings/settings-service';
 import { gameState } from './game-state-service.svelte';
+import { epicService } from './epic-service';
 import type { Profile } from './schema';
 
 class LaunchService {
@@ -29,6 +30,10 @@ class LaunchService {
 		const coreClrExists = await exists(coreClr);
 		if (!coreClrExists) {
 			throw new Error('dotnet runtime not found. Please wait for installation to complete.');
+		}
+
+		if (settings.game_platform === 'epic') {
+			await epicService.ensureLoggedIn();
 		}
 
 		await invoke('launch_modded', {
