@@ -91,13 +91,19 @@ impl EpicApi {
             .await
             .map_err(|e| format!("Request failed: {e}"))?;
 
-        let body = response
-            .text()
-            .await
-            .map_err(|e| format!("Failed to read response: {e}"))?;
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response
+                .text()
+                .await
+                .map_err(|e| format!("Failed to read response: {e}"))?;
+            return Err(format!("OAuth request failed ({}): {}", status, body));
+        }
 
-        let oauth: OAuthResponse =
-            serde_json::from_str(&body).map_err(|e| format!("Failed to parse response: {e}"))?;
+        let oauth: OAuthResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse response: {e}"))?;
 
         Ok(EpicSession {
             access_token: oauth.access_token,
