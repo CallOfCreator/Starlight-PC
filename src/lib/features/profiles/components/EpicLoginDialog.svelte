@@ -12,15 +12,22 @@
 	import { showToastError, showToastSuccess } from '$lib/utils/toast';
 	import { epicService } from '../epic-service';
 	import { openUrl } from '@tauri-apps/plugin-opener';
-	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
-	import { epicQueries } from '../epic-queries';
 	import { LogOut, ExternalLink } from '@lucide/svelte';
 
-	let { open = $bindable() }: { open?: boolean } = $props();
+	interface Props {
+		open?: boolean;
+		onChange?: () => void;
+	}
 
-	const queryClient = useQueryClient();
-	const isLoggedInQuery = createQuery(() => epicQueries.isLoggedIn());
-	const isLoggedIn = $derived(isLoggedInQuery.data ?? false);
+	let { open = $bindable(), onChange }: Props = $props();
+
+	let isLoggedIn = $state(false);
+
+	$effect(() => {
+		if (open) {
+			epicService.isLoggedIn().then((v) => (isLoggedIn = v));
+		}
+	});
 
 	let authCode = $state('');
 	let isLoggingIn = $state(false);
@@ -38,7 +45,8 @@
 			showToastSuccess('Successfully logged into Epic Games');
 			authCode = '';
 			open = false;
-			queryClient.invalidateQueries({ queryKey: ['epic', 'isLoggedIn'] });
+			isLoggedIn = true;
+			onChange?.();
 		} catch (e) {
 			showToastError(e);
 		} finally {
@@ -60,7 +68,8 @@
 		try {
 			await epicService.logout();
 			showToastSuccess('Logged out of Epic Games');
-			queryClient.invalidateQueries({ queryKey: ['epic', 'isLoggedIn'] });
+			isLoggedIn = false;
+			onChange?.();
 		} catch (e) {
 			showToastError(e);
 		} finally {

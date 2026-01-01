@@ -1,13 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Store } from '@tauri-apps/plugin-store';
 
 class EpicService {
 	async isLoggedIn(): Promise<boolean> {
-		try {
-			return await invoke<boolean>('epic_is_logged_in');
-		} catch {
-			return false;
-		}
+		return await invoke<boolean>('epic_is_logged_in');
 	}
 
 	async login(code: string): Promise<void> {
@@ -27,10 +22,6 @@ class EpicService {
 		if (!restored) {
 			throw new Error('Not logged into Epic Games');
 		}
-	}
-
-	async getStore(): Promise<Store> {
-		return await Store.load('registry.json');
 	}
 }
 

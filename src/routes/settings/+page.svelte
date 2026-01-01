@@ -14,31 +14,37 @@
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
 	import { exists } from '@tauri-apps/plugin-fs';
 	import EpicLoginDialog from '$lib/features/profiles/components/EpicLoginDialog.svelte';
-	import { epicQueries } from '$lib/features/profiles/epic-queries';
+	import { epicService } from '$lib/features/profiles/epic-service';
 
 	const settingsQuery = createQuery(() => settingsQueries.get());
 	const settings = $derived(settingsQuery.data as AppSettings | undefined);
 	const queryClient = useQueryClient();
 
-	const isLoggedInQuery = createQuery(() => epicQueries.isLoggedIn());
-	const isLoggedIn = $derived(isLoggedInQuery.data ?? false);
+	let isLoggedIn = $state(false);
+	let isSaving = $state(false);
+	let isDetecting = $state(false);
+	let epicLoginOpen = $state(false);
+	let hasInitialized = $state(false);
+
+	async function refreshEpicAuth() {
+		isLoggedIn = await epicService.isLoggedIn();
+	}
 
 	let localAmongUsPath = $state('');
 	let localBepInExUrl = $state('');
 	let localBepInExVersion = $state('');
 	let localCloseOnLaunch = $state(false);
 	let localGamePlatform = $state<GamePlatform>('steam');
-	let isSaving = $state(false);
-	let isDetecting = $state(false);
-	let epicLoginOpen = $state(false);
 
 	$effect(() => {
-		if (settings) {
+		if (settings && !hasInitialized) {
 			localAmongUsPath = settings.among_us_path ?? '';
 			localBepInExUrl = settings.bepinex_url ?? '';
 			localBepInExVersion = settings.bepinex_version ?? '';
 			localCloseOnLaunch = settings.close_on_launch ?? false;
 			localGamePlatform = settings.game_platform ?? 'steam';
+			hasInitialized = true;
+			refreshEpicAuth();
 		}
 	});
 
@@ -293,4 +299,4 @@
 	{/if}
 </div>
 
-<EpicLoginDialog bind:open={epicLoginOpen} />
+<EpicLoginDialog bind:open={epicLoginOpen} onChange={refreshEpicAuth} />
