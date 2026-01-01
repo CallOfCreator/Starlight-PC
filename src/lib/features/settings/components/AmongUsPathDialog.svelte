@@ -41,8 +41,7 @@
 		if (await exists(crashHandlerPath)) {
 			const updatedurl = url.replace('x86', 'x64');
 			await settingsService.updateSettings({ bepinex_url: updatedurl });
-		}
-		else {
+		} else {
 			const updatedurl = url.replace('x64', 'x86');
 			await settingsService.updateSettings({ bepinex_url: updatedurl });
 		}
