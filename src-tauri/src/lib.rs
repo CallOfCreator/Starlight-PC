@@ -74,6 +74,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::download::download_and_extract_zip,
             commands::finder::detect_among_us,
             commands::finder::get_game_platform,
             commands::launch::launch_modded,

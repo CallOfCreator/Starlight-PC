@@ -23,6 +23,7 @@
 	import { join } from '@tauri-apps/api/path';
 	import { gameState } from '../game-state-service.svelte';
 	import { profileService } from '../profile-service';
+	import { installProgress } from '../install-progress.svelte';
 	import { queryClient } from '$lib/state/queryClient';
 	import { goto } from '$app/navigation';
 
@@ -76,7 +77,10 @@
 	);
 
 	const isRunning = $derived(gameState.isProfileRunning(profile.id));
-	const isInstalling = $derived(profile.bepinex_installed === false);
+	const currentProgress = $derived(installProgress.getProgress(profile.id));
+	const isInstalling = $derived(
+		profile.bepinex_installed === false || currentProgress !== undefined
+	);
 	const isDisabled = $derived(isInstalling || isRunning);
 
 	const totalPlayTime = $derived(
@@ -135,7 +139,7 @@
 							class="gap-1.5 border-amber-500/50 text-amber-600 dark:text-amber-400"
 						>
 							<Download class="size-3 animate-pulse" />
-							Installing
+							{currentProgress?.message ?? 'Installing...'}
 						</Badge>
 					{/if}
 				</div>

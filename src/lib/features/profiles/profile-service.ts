@@ -5,6 +5,7 @@ import { queryClient } from '$lib/state/queryClient';
 import type { Profile, UnifiedMod } from './schema';
 import { downloadBepInEx } from './bepinex-download';
 import { settingsService } from '../settings/settings-service';
+import { installProgress } from './install-progress.svelte';
 
 class ProfileService {
 	async getStore(): Promise<Store> {
@@ -67,16 +68,24 @@ class ProfileService {
 
 	private async installBepInExInBackground(profileId: string, profilePath: string): Promise<void> {
 		const bepinexUrl = await this.getBepInExUrl();
-		await downloadBepInEx(profilePath, bepinexUrl);
 
-		const store = await this.getStore();
-		const profiles = (await store.get<Profile[]>('profiles')) ?? [];
-		const profileIndex = profiles.findIndex((p) => p.id === profileId);
+		try {
+			await downloadBepInEx(profilePath, bepinexUrl, (progress) => {
+				installProgress.setProgress(profileId, progress);
+			});
 
-		if (profileIndex >= 0) {
-			profiles[profileIndex].bepinex_installed = true;
-			await store.set('profiles', profiles);
-			await store.save();
+			const store = await this.getStore();
+			const profiles = (await store.get<Profile[]>('profiles')) ?? [];
+			const profileIndex = profiles.findIndex((p) => p.id === profileId);
+
+			if (profileIndex >= 0) {
+				profiles[profileIndex].bepinex_installed = true;
+				await store.set('profiles', profiles);
+				await store.save();
+				queryClient.invalidateQueries({ queryKey: ['profiles'] });
+			}
+		} finally {
+			installProgress.clearProgress(profileId);
 		}
 	}
 

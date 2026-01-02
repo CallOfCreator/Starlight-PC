@@ -64,7 +64,6 @@
 		"@tauri-apps/plugin-window-state": "~2",
 		"arktype": "^2.1.29",
 		"dompurify": "^3.3.0",
-		"jszip": "^3.10.1",
 		"marked": "^16.4.1",
 		"semver": "^7.7.3"
 	}

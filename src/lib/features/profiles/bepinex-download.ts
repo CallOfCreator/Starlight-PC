@@ -1,34 +1,31 @@
-import JSZip from 'jszip';
-import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
-import { join, dirname } from '@tauri-apps/api/path';
-import { fetch } from '@tauri-apps/plugin-http';
+import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
-export async function downloadBepInEx(profilePath: string, bepinexUrl: string): Promise<void> {
-	// This fetch runs through Rust, bypassing browser CORS
-	const response = await fetch(bepinexUrl, {
-		method: 'GET',
-		connectTimeout: 30000
-	});
+export interface DownloadProgress {
+	stage: 'downloading' | 'extracting' | 'complete';
+	progress: number;
+	message: string;
+}
 
-	if (!response.ok) {
-		throw new Error(`Failed to download BepInEx: ${response.statusText}`);
-	}
+export async function downloadBepInEx(
+	profilePath: string,
+	bepinexUrl: string,
+	onProgress?: (progress: DownloadProgress) => void
+): Promise<void> {
+	let unlisten: UnlistenFn | undefined;
 
-	const arrayBuffer = await response.arrayBuffer();
-	const zip = await JSZip.loadAsync(arrayBuffer);
-
-	for (const [filename, file] of Object.entries(zip.files)) {
-		const filePath = await join(profilePath, filename);
-
-		if (file.dir) {
-			await mkdir(filePath, { recursive: true });
-		} else {
-			// Safety: Ensure the directory for this file exists
-			const parentDir = await dirname(filePath);
-			await mkdir(parentDir, { recursive: true });
-
-			const content = await file.async('uint8array');
-			await writeFile(filePath, content);
+	try {
+		if (onProgress) {
+			unlisten = await listen<DownloadProgress>('download-progress', (event) => {
+				onProgress(event.payload);
+			});
 		}
+
+		await invoke('download_and_extract_zip', {
+			url: bepinexUrl,
+			destination: profilePath
+		});
+	} finally {
+		unlisten?.();
 	}
 }
