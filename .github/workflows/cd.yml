@@ -22,6 +22,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify version matches tag
+        shell: bash
+        run: |
+          # 1. Get the tag name (e.g., v1.2.3 -> 1.2.3)
+          TAG_VERSION=${GITHUB_REF_NAME#v}
+
+          # 2. Extract versions from config files
+          PKG_VERSION=$(jq -r .version package.json)
+          TAURI_VERSION=$(jq -r .version src-tauri/tauri.conf.json)
+          # Extracts the first instance of version = "..." in Cargo.toml
+          CARGO_VERSION=$(grep -m 1 '^version =' src-tauri/Cargo.toml | cut -d '"' -f 2)
+
+          echo "Comparing Tag ($TAG_VERSION) against files..."
+          echo "  package.json:      $PKG_VERSION"
+          echo "  tauri.conf.json:   $TAURI_VERSION"
+          echo "  Cargo.toml:        $CARGO_VERSION"
+
+          # 3. Check for mismatches
+          MISMATCH=false
+
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Version mismatch in package.json (Found $PKG_VERSION, expected $TAG_VERSION)"
+            MISMATCH=true
+          fi
+
+          if [ "$TAG_VERSION" != "$TAURI_VERSION" ]; then
+            echo "::error::Version mismatch in tauri.conf.json (Found $TAURI_VERSION, expected $TAG_VERSION)"
+            MISMATCH=true
+          fi
+
+          if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
+            echo "::error::Version mismatch in Cargo.toml (Found $CARGO_VERSION, expected $TAG_VERSION)"
+            MISMATCH=true
+          fi
+
+          if [ "$MISMATCH" = true ]; then
+            echo "Aborting: The git tag version does not match the versions defined in the project files."
+            exit 1
+          fi
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
