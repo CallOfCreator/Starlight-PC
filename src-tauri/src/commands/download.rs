@@ -113,7 +113,10 @@ fn extract_zip<R: Runtime>(
     debug!("Zip archive contains {} files", total_files);
 
     fs::create_dir_all(dest_path).map_err(|e| {
-        error!("Failed to create destination directory {:?}: {}", dest_path, e);
+        error!(
+            "Failed to create destination directory {:?}: {}",
+            dest_path, e
+        );
         e.to_string()
     })?;
 
@@ -167,7 +170,10 @@ pub async fn download_and_extract_zip<R: Runtime>(
     destination: String,
     cache_path: Option<String>,
 ) -> Result<(), String> {
-    info!("download_and_extract_zip: url={}, destination={}", url, destination);
+    info!(
+        "download_and_extract_zip: url={}, destination={}",
+        url, destination
+    );
     let dest_path = Path::new(&destination);
 
     // Check if we should use cached file
@@ -214,7 +220,10 @@ pub async fn download_bepinex_to_cache<R: Runtime>(
     url: String,
     cache_path: String,
 ) -> Result<(), String> {
-    info!("download_bepinex_to_cache: url={}, cache_path={}", url, cache_path);
+    info!(
+        "download_bepinex_to_cache: url={}, cache_path={}",
+        url, cache_path
+    );
     let cache_file = Path::new(&cache_path);
     download_file(&app, &url, cache_file).await?;
     emit_progress(&app, "complete", 100.0, "Download complete!");

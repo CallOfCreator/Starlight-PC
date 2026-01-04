@@ -20,11 +20,10 @@ fn set_dll_directory(path: &str) -> Result<(), String> {
 
     debug!("Setting DLL directory to: {}", path);
     let wide: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
-    unsafe { SetDllDirectoryW(PCWSTR(wide.as_ptr())) }
-        .map_err(|e| {
-            error!("SetDllDirectory failed: {}", e);
-            format!("SetDllDirectory failed: {e}")
-        })
+    unsafe { SetDllDirectoryW(PCWSTR(wide.as_ptr())) }.map_err(|e| {
+        error!("SetDllDirectory failed: {}", e);
+        format!("SetDllDirectory failed: {e}")
+    })
 }
 
 fn launch<R: Runtime>(app: AppHandle<R>, mut cmd: Command) -> Result<(), String> {
@@ -40,12 +39,10 @@ fn launch<R: Runtime>(app: AppHandle<R>, mut cmd: Command) -> Result<(), String>
         }
 
         info!("Launching game process");
-        let child = cmd
-            .spawn()
-            .map_err(|e| {
-                error!("Failed to launch game: {}", e);
-                format!("Failed to launch game: {e}")
-            })?;
+        let child = cmd.spawn().map_err(|e| {
+            error!("Failed to launch game: {}", e);
+            format!("Failed to launch game: {e}")
+        })?;
         *guard = Some(child);
     }
 
@@ -93,9 +90,11 @@ pub async fn launch_modded<R: Runtime>(
     coreclr_path: String,
 ) -> Result<(), String> {
     info!("launch_modded: game_exe={}", game_exe);
-    debug!("launch_modded: profile_path={}, bepinex_dll={}, dotnet_dir={}, coreclr_path={}", 
-           _profile_path, bepinex_dll, dotnet_dir, coreclr_path);
-    
+    debug!(
+        "launch_modded: profile_path={}, bepinex_dll={}, dotnet_dir={}, coreclr_path={}",
+        _profile_path, bepinex_dll, dotnet_dir, coreclr_path
+    );
+
     let game_dir = PathBuf::from(&game_exe);
     let game_dir = game_dir.parent().ok_or_else(|| {
         error!("Invalid game path: {}", game_exe);

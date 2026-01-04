@@ -110,7 +110,7 @@ pub fn detect_platform(path: &str) -> Result<String, String> {
     } else {
         "steam"
     };
-    
+
     debug!("Detected platform '{}' for path: {:?}", platform, path);
     Ok(platform.to_string())
 }

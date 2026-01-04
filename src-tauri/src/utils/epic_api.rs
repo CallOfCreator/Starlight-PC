@@ -101,13 +101,10 @@ impl EpicApi {
             return Err(format!("OAuth request failed ({status}): {body}"));
         }
 
-        response
-            .json()
-            .await
-            .map_err(|e| {
-                error!("Failed to parse Epic OAuth response: {}", e);
-                format!("Failed to parse response: {e}")
-            })
+        response.json().await.map_err(|e| {
+            error!("Failed to parse Epic OAuth response: {}", e);
+            format!("Failed to parse response: {e}")
+        })
     }
 
     pub async fn get_game_token(&self, session: &EpicSession) -> Result<String, String> {
@@ -147,11 +144,10 @@ impl EpicApi {
 // --- Keyring storage with chunking for Windows credential size limits ---
 
 fn keyring_entry(suffix: &str) -> Result<Entry, String> {
-    Entry::new(KEYRING_SERVICE, &format!("{KEYRING_KEY}_{suffix}"))
-        .map_err(|e| {
-            error!("Keyring access failed: {}", e);
-            format!("Keyring access failed: {e}")
-        })
+    Entry::new(KEYRING_SERVICE, &format!("{KEYRING_KEY}_{suffix}")).map_err(|e| {
+        error!("Keyring access failed: {}", e);
+        format!("Keyring access failed: {e}")
+    })
 }
 
 fn compress(data: &[u8]) -> Result<Vec<u8>, String> {
@@ -168,12 +164,10 @@ fn compress(data: &[u8]) -> Result<Vec<u8>, String> {
 fn decompress(data: &[u8]) -> Result<Vec<u8>, String> {
     let mut decoder = GzDecoder::new(data);
     let mut out = Vec::new();
-    decoder
-        .read_to_end(&mut out)
-        .map_err(|e| {
-            error!("Decompression failed: {}", e);
-            format!("Decompression failed: {e}")
-        })?;
+    decoder.read_to_end(&mut out).map_err(|e| {
+        error!("Decompression failed: {}", e);
+        format!("Decompression failed: {e}")
+    })?;
     Ok(out)
 }
 
