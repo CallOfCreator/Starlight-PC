@@ -134,18 +134,21 @@ fn build_login_window(
             }
 
             // Prevent duplicate handling
+            // Prevent duplicate handling
             if handled_nav.swap(true, Ordering::SeqCst) {
                 return false;
             }
 
+            let app = app_nav.clone();
             if let Some(code) = extract_code_param(url) {
-                let app = app_nav.clone();
                 tauri::async_runtime::spawn(async move {
                     handle_auth_result(&app, do_login(&code).await);
                     close_login_window(&app);
                 });
+            } else {
+                let _ = app.emit("epic-login-error", "Missing authorization code".to_string());
+                close_login_window(&app);
             }
-
             false
         })
         .build()
