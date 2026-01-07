@@ -1,5 +1,7 @@
-import { writeFile, mkdir, remove } from '@tauri-apps/plugin-fs';
+import { mkdir, remove } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
+import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { apiFetch } from '$lib/api/client';
 import {
 	ModVersionInfo as ModVersionInfoSchema,
@@ -14,8 +16,14 @@ import * as semver from 'semver';
 const ModVersionsArray = type(ModVersion.array());
 const ModVersionInfoValidator = type(ModVersionInfoSchema);
 
-/** Default timeout for mod downloads (30 seconds) */
-const DOWNLOAD_TIMEOUT_MS = 30_000;
+/** Progress event payload from Rust download_mod command */
+export interface ModDownloadProgress {
+	mod_id: string;
+	downloaded: number;
+	total: number | null;
+	progress: number; // 0-100
+	stage: 'connecting' | 'downloading' | 'verifying' | 'writing' | 'complete';
+}
 
 export interface DependencyWithMeta extends ModDependency {
 	modName: string;
@@ -83,40 +91,30 @@ class ModInstallService {
 		return resolved;
 	}
 
+	/**
+	 * Listens for mod download progress events
+	 * Returns an unlisten function to stop listening
+	 */
+	async onDownloadProgress(callback: (progress: ModDownloadProgress) => void): Promise<UnlistenFn> {
+		return await listen<ModDownloadProgress>('mod-download-progress', (event) => {
+			callback(event.payload);
+		});
+	}
+
 	async installModToProfile(modId: string, version: string, profilePath: string): Promise<string> {
 		const info = await this.getModVersionInfo(modId, version);
 
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-
-		let response: Response;
-		try {
-			response = await fetch(info.download_url, { signal: controller.signal });
-		} catch (err) {
-			if (err instanceof Error && err.name === 'AbortError') {
-				throw new Error(`Download timed out after ${DOWNLOAD_TIMEOUT_MS / 1000} seconds`);
-			}
-			throw err;
-		} finally {
-			clearTimeout(timeoutId);
-		}
-
-		if (!response.ok) throw new Error(`Download failed: ${response.status} ${response.statusText}`);
-
-		const data = new Uint8Array(await response.arrayBuffer());
-
-		const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-		const hashArray = Array.from(new Uint8Array(hashBuffer));
-		const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-
-		if (hashHex !== info.checksum) {
-			throw new Error(`Checksum mismatch: expected ${info.checksum}, got ${hashHex}`);
-		}
-
 		const pluginsDir = await join(profilePath, 'BepInEx', 'plugins');
-
 		await mkdir(pluginsDir, { recursive: true });
-		await writeFile(await join(pluginsDir, info.file_name), data);
+
+		const destination = await join(pluginsDir, info.file_name);
+
+		await invoke('download_mod', {
+			modId,
+			url: info.download_url,
+			destination,
+			expectedChecksum: info.checksum
+		});
 
 		return info.file_name;
 	}
