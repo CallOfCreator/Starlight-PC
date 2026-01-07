@@ -71,6 +71,7 @@ class ProfileService {
 
 		this.installBepInExInBackground(profileId, profilePath).catch((err) => {
 			logError(`installBepInExInBackground failed: ${err instanceof Error ? err.message : err}`);
+			showError(err, 'BepInEx installation');
 		});
 
 		return profile;

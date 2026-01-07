@@ -14,6 +14,9 @@ import * as semver from 'semver';
 const ModVersionsArray = type(ModVersion.array());
 const ModVersionInfoValidator = type(ModVersionInfoSchema);
 
+/** Default timeout for mod downloads (30 seconds) */
+const DOWNLOAD_TIMEOUT_MS = 30_000;
+
 export interface DependencyWithMeta extends ModDependency {
 	modName: string;
 	resolvedVersion: string;
@@ -82,8 +85,23 @@ class ModInstallService {
 
 	async installModToProfile(modId: string, version: string, profilePath: string): Promise<string> {
 		const info = await this.getModVersionInfo(modId, version);
-		const response = await fetch(info.download_url);
-		if (!response.ok) throw new Error('Download failed');
+
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+
+		let response: Response;
+		try {
+			response = await fetch(info.download_url, { signal: controller.signal });
+		} catch (err) {
+			if (err instanceof Error && err.name === 'AbortError') {
+				throw new Error(`Download timed out after ${DOWNLOAD_TIMEOUT_MS / 1000} seconds`);
+			}
+			throw err;
+		} finally {
+			clearTimeout(timeoutId);
+		}
+
+		if (!response.ok) throw new Error(`Download failed: ${response.status} ${response.statusText}`);
 
 		const data = new Uint8Array(await response.arrayBuffer());
 

@@ -28,6 +28,7 @@
 	import { installProgress } from '../install-progress.svelte';
 	import { queryClient } from '$lib/state/queryClient';
 	import { goto } from '$app/navigation';
+	import { showError } from '$lib/utils/toast';
 
 	let {
 		profile,
@@ -42,7 +43,7 @@
 			const fullPath = await join(profile.path, 'BepInEx');
 			await revealItemInDir(fullPath);
 		} catch (error) {
-			console.error('Failed to open folder:', error);
+			showError(error, 'Open folder');
 		}
 	}
 
@@ -57,7 +58,7 @@
 			queryClient.invalidateQueries({ queryKey: ['unified-mods', profile.id] });
 			queryClient.invalidateQueries({ queryKey: ['profiles'] });
 		} catch (error) {
-			console.error('Failed to remove mod:', error);
+			showError(error, 'Remove mod');
 		}
 	}
 
