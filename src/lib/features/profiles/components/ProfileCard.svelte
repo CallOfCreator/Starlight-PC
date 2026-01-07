@@ -1,34 +1,22 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Badge } from '$lib/components/ui/badge';
-	import {
-		Play,
-		Plus,
-		FolderOpen,
-		Trash2,
-		Calendar,
-		Package,
-		EllipsisVertical,
-		Download,
-		LoaderCircle,
-		Clock,
-		AlertCircle,
-		RotateCcw
-	} from '@lucide/svelte';
-	import { revealItemInDir } from '@tauri-apps/plugin-opener';
+	import { Button } from '$lib/components/ui/button';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { modQueries } from '$lib/features/mods/queries';
 	import type { Profile, UnifiedMod } from '../schema';
 	import type { Mod } from '$lib/features/mods/schema';
-	import { join } from '@tauri-apps/api/path';
 	import { gameState } from '../game-state-service.svelte';
 	import { profileService } from '../profile-service';
 	import { installProgress } from '../install-progress.svelte';
 	import { queryClient } from '$lib/state/queryClient';
-	import { goto } from '$app/navigation';
 	import { showError } from '$lib/utils/toast';
+	import { formatPlayTime } from '$lib/utils';
+	import { join } from '@tauri-apps/api/path';
+	import { revealItemInDir } from '@tauri-apps/plugin-opener';
+	import ProfileCardActions from './ProfileCardActions.svelte';
+	import ProfileModsList from './ProfileModsList.svelte';
+	import { Package, Calendar, Clock, AlertCircle, RotateCcw, Download } from '@lucide/svelte';
 
 	let {
 		profile,
@@ -60,19 +48,6 @@
 		} catch (error) {
 			showError(error, 'Remove mod');
 		}
-	}
-
-	function formatPlayTime(ms: number): string {
-		const seconds = Math.floor(ms / 1000);
-		const minutes = Math.floor(seconds / 60);
-		const hours = Math.floor(minutes / 60);
-
-		if (hours > 0) {
-			const remainingMinutes = minutes % 60;
-			return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-		}
-		if (minutes > 0) return `${minutes}m`;
-		return seconds > 0 ? `${seconds}s` : '0m';
 	}
 
 	const lastLaunched = $derived(
@@ -126,9 +101,6 @@
 			return { id: mod.file, name: mod.file, source: 'custom' as const };
 		});
 	});
-
-	const displayedMods = $derived(showAllMods ? allMods() : allMods().slice(0, 3));
-	const hiddenModCount = $derived(allMods().length - 3);
 </script>
 
 <div class="@container">
@@ -185,102 +157,26 @@
 				</Card.Description>
 			</div>
 
-			<div class="flex items-center gap-2 @md:shrink-0">
-				<Button size="sm" onclick={onlaunch} disabled={isDisabled}>
-					{#if isRunning}
-						<LoaderCircle class="size-4 animate-spin" />
-						<span>Running</span>
-					{:else}
-						<Play class="size-4 fill-current" />
-						<span>Launch</span>
-					{/if}
-				</Button>
-
-				<Button
-					size="sm"
-					onclick={() => goto('/explore')}
-					aria-label="Install mods"
-					disabled={isDisabled}
-				>
-					<Plus class="size-4" />
-				</Button>
-
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button {...props} variant="ghost" size="icon" class="size-8">
-								<EllipsisVertical class="size-4" />
-								<span class="sr-only">Profile actions</span>
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="end" class="w-48">
-						<DropdownMenu.Group>
-							<DropdownMenu.Item onclick={onlaunch} disabled={isDisabled}>
-								<Play class="size-4" />
-								Launch
-							</DropdownMenu.Item>
-							<DropdownMenu.Item onclick={handleOpenFolder}>
-								<FolderOpen class="size-4" />
-								Open Folder
-							</DropdownMenu.Item>
-						</DropdownMenu.Group>
-
-						{#if allMods().length > 0}
-							<DropdownMenu.Separator />
-							<DropdownMenu.Sub>
-								<DropdownMenu.SubTrigger disabled={isDisabled}>
-									<Package class="size-4" />
-									Manage Mods
-								</DropdownMenu.SubTrigger>
-								<DropdownMenu.SubContent class="max-h-64 overflow-y-auto">
-									{#each allMods() as mod (mod.id)}
-										<DropdownMenu.Item
-											onclick={() => handleRemoveMod(mod)}
-											class="justify-between"
-											disabled={isDisabled}
-										>
-											<span class="truncate">{mod.name}</span>
-											<Trash2 class="size-4 shrink-0 text-destructive" />
-										</DropdownMenu.Item>
-									{/each}
-								</DropdownMenu.SubContent>
-							</DropdownMenu.Sub>
-						{/if}
-
-						<DropdownMenu.Separator />
-						<DropdownMenu.Item
-							onclick={ondelete}
-							class="text-destructive focus:bg-destructive focus:text-destructive-foreground"
-							disabled={isDisabled}
-						>
-							<Trash2 class="size-4" />
-							Delete Profile
-						</DropdownMenu.Item>
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-			</div>
+			<ProfileCardActions
+				onlaunch={() => onlaunch?.()}
+				onOpenFolder={handleOpenFolder}
+				ondelete={() => ondelete?.()}
+				allMods={allMods()}
+				onRemoveMod={handleRemoveMod}
+				{isDisabled}
+			/>
 		</Card.Header>
 
-		{#if allMods().length > 0}
-			<Card.Content class="pt-4">
-				<div class="flex flex-wrap items-center gap-1.5">
-					{#each displayedMods as mod (mod.id)}
-						<Badge variant="secondary" class="max-w-32 truncate text-xs">
-							{mod.name}
-						</Badge>
-					{/each}
-					{#if hiddenModCount > 0}
-						<button
-							type="button"
-							onclick={() => (showAllMods = !showAllMods)}
-							class="rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-						>
-							{showAllMods ? 'Show less' : `+${hiddenModCount} more`}
-						</button>
-					{/if}
-				</div>
-			</Card.Content>
-		{/if}
+		<Card.Content class="pt-4">
+			<ProfileModsList
+				allMods={allMods()}
+				showAllMods
+				onToggleShowAll={() => (showAllMods = !showAllMods)}
+			/>
+		</Card.Content>
 	</Card.Root>
 </div>
+
+<style lang="postcss">
+	@reference "$lib/../app.css";
+</style>
