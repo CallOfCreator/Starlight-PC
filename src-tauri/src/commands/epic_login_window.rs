@@ -55,10 +55,17 @@ impl EpicLoginWindow {
         let on_error_shared: ErrorCallback = Arc::new(Mutex::new(Some(Box::new(on_error))));
         let on_cancel_shared: SuccessCallback = Arc::new(Mutex::new(Some(Box::new(on_cancel))));
 
+        let data_dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| e.to_string())?
+            .join("cache");
+
         let window =
             WebviewWindowBuilder::new(app, EPIC_LOGIN_WINDOW, WebviewUrl::External(auth_url))
                 .title("Login to Epic Games")
                 .inner_size(500.0, 700.0)
+                .data_directory(data_dir)
                 .center()
                 .resizable(true)
                 .on_page_load(|webview, payload| {
