@@ -90,13 +90,10 @@ impl<T: Serialize + for<'de> Deserialize<'de>> KeyringStorage<T> {
         }
 
         info!("Clearing {} ({} chunks)", self.base_key, count);
-        let _ = self
-            .entry("n")
-            .map(|e| e.delete_credential())
-            .map_err(|e| {
-                error!("Failed to delete credential 'n': {}", e);
-                e
-            });
+        let _ = self.entry("n").map(|e| e.delete_credential()).map_err(|e| {
+            error!("Failed to delete credential 'n': {}", e);
+            e
+        });
         for i in 0..count {
             let _ = self
                 .entry(&i.to_string())
