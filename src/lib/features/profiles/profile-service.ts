@@ -1,22 +1,23 @@
-import { Store } from '@tauri-apps/plugin-store';
 import { mkdir, remove, readDir } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { queryClient } from '$lib/state/queryClient';
+import { getStore } from '$lib/state/store';
 import { info, warn, error as logError, debug } from '@tauri-apps/plugin-log';
-import type { Profile, UnifiedMod } from './schema';
+import { type } from 'arktype';
+import { ProfileEntry, type Profile, type UnifiedMod } from './schema';
 import { downloadBepInEx } from './bepinex-download';
 import { settingsService } from '../settings/settings-service';
 import { installProgress } from './install-progress.svelte';
 import { showError } from '$lib/utils/toast';
 
-class ProfileService {
-	async getStore(): Promise<Store> {
-		return await Store.load('registry.json');
-	}
+const ProfilesArray = type(ProfileEntry.array());
 
+class ProfileService {
 	async getProfiles(): Promise<Profile[]> {
-		const store = await this.getStore();
-		const profiles = (await store.get<Profile[]>('profiles')) ?? [];
+		const store = await getStore();
+		const raw = await store.get('profiles');
+		const result = ProfilesArray(raw ?? []);
+		const profiles = result instanceof type.errors ? [] : result;
 
 		return profiles.sort((a, b) => {
 			const aLaunched = a.last_launched_at ?? 0;
@@ -34,7 +35,7 @@ class ProfileService {
 		}
 
 		info(`Creating profile: ${trimmed}`);
-		const store = await this.getStore();
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 
 		if (profiles.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
@@ -84,8 +85,10 @@ class ProfileService {
 				installProgress.setProgress(profileId, progress);
 			});
 
-			const store = await this.getStore();
-			const profiles = (await store.get<Profile[]>('profiles')) ?? [];
+			const store = await getStore();
+			const raw = await store.get('profiles');
+			const result = ProfilesArray(raw ?? []);
+			const profiles = result instanceof type.errors ? [] : result;
 			const profileIndex = profiles.findIndex((p) => p.id === profileId);
 
 			if (profileIndex >= 0) {
@@ -111,7 +114,7 @@ class ProfileService {
 
 	async deleteProfile(profileId: string): Promise<void> {
 		info(`Deleting profile: ${profileId}`);
-		const store = await this.getStore();
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
@@ -146,7 +149,7 @@ class ProfileService {
 	}
 
 	async updateLastLaunched(profileId: string): Promise<void> {
-		const store = await this.getStore();
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
@@ -165,7 +168,7 @@ class ProfileService {
 		file: string
 	): Promise<void> {
 		info(`Adding mod ${modId} v${version} to profile ${profileId}`);
-		const store = await this.getStore();
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
@@ -188,7 +191,7 @@ class ProfileService {
 	}
 
 	async addPlayTime(profileId: string, durationMs: number): Promise<void> {
-		const store = await this.getStore();
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
@@ -207,7 +210,7 @@ class ProfileService {
 
 	async removeModFromProfile(profileId: string, modId: string): Promise<void> {
 		info(`Removing mod ${modId} from profile ${profileId}`);
-		const store = await this.getStore();
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 

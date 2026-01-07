@@ -4,6 +4,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { Settings, Save, RefreshCw, Download, Trash2 } from '@lucide/svelte';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { settingsQueries } from '$lib/features/settings/queries';
@@ -109,17 +110,7 @@
 	}
 
 	async function handleAutoSetBepinex() {
-		const crashHandlerPath = `${localAmongUsPath}/UnityCrashHandler64.exe`;
-
-		if (await exists(crashHandlerPath)) {
-			const url = (await settingsService.getSettings()).bepinex_url;
-			const updatedurl = url.replace('x86', 'x64');
-			await settingsService.updateSettings({ bepinex_url: updatedurl });
-		} else {
-			const url = (await settingsService.getSettings()).bepinex_url;
-			const updatedurl = url.replace('x64', 'x86');
-			await settingsService.updateSettings({ bepinex_url: updatedurl });
-		}
+		await settingsService.autoDetectBepInExArchitecture(localAmongUsPath);
 	}
 
 	async function handleBrowse() {
@@ -181,17 +172,11 @@
 </script>
 
 <div class="px-10 py-8">
-	<div class="mb-6 flex items-center gap-3">
-		<div
-			class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20"
-		>
-			<Settings class="h-6 w-6 text-primary" />
-		</div>
-		<div class="space-y-0.5">
-			<h1 class="text-4xl font-black tracking-tight">Settings</h1>
-			<p class="text-sm text-muted-foreground">Configure your Among Us path and app preferences.</p>
-		</div>
-	</div>
+	<PageHeader
+		title="Settings"
+		description="Configure your Among Us path and app preferences."
+		icon={Settings}
+	/>
 
 	{#if settingsQuery.isPending}
 		<div class="max-w-2xl space-y-6">

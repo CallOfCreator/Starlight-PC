@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Library, Play, Ghost } from '@lucide/svelte';
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import ProfileCard from '$lib/features/profiles/components/ProfileCard.svelte';
 	import CreateProfileDialog from '$lib/features/profiles/components/CreateProfileDialog.svelte';
 	import {
@@ -100,20 +101,13 @@
 </script>
 
 <div class="px-10 py-8">
-	<div class="mb-6 flex items-center justify-between gap-3">
-		<div class="flex items-center gap-3">
-			<div
-				class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20"
-			>
-				<Library class="h-6 w-6 text-primary" />
-			</div>
-			<div class="space-y-0.5">
-				<h1 class="text-4xl font-black tracking-tight">Library</h1>
-				<p class="text-sm text-muted-foreground">Manage your profiles and launch the game.</p>
-			</div>
-		</div>
+	<PageHeader
+		title="Library"
+		description="Manage your profiles and launch the game."
+		icon={Library}
+	>
 		<CreateProfileDialog />
-	</div>
+	</PageHeader>
 
 	<div class="mb-6">
 		<h2 class="mb-3 text-lg font-semibold">Quick Actions</h2>

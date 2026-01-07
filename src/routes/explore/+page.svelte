@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { Search, ArrowUpDown, X } from '@lucide/svelte';
 	import { Compass, ChevronLeft, ChevronRight } from '@jis3r/icons';
 
@@ -56,19 +57,12 @@
 </script>
 
 <div class="scrollbar-styled @container h-full space-y-12 overflow-y-auto px-10 py-8">
-	<header class="mb-6 flex flex-col gap-6 @lg:flex-row @lg:items-center @lg:justify-between">
-		<div class="flex items-center gap-3">
-			<div
-				class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20"
-			>
-				<Compass class="h-6 w-6 text-primary" />
-			</div>
-			<div class="space-y-0.5">
-				<h1 class="text-4xl font-black tracking-tight">Explore</h1>
-				<p class="text-sm text-muted-foreground">Discover and manage mods for Among Us.</p>
-			</div>
-		</div>
-
+	<PageHeader
+		title="Explore"
+		description="Discover and manage mods for Among Us."
+		icon={Compass}
+		class="flex-col gap-6 @lg:flex-row @lg:items-center @lg:justify-between"
+	>
 		<div class="flex items-center gap-3">
 			<div class="relative max-w-xs">
 				<Search
@@ -111,7 +105,7 @@
 				</Select.Root>
 			</div>
 		</div>
-	</header>
+	</PageHeader>
 
 	<main class="grid grid-cols-1 gap-4 xl:grid-cols-2">
 		{#if modsQuery.isPending && !modsQuery.data}

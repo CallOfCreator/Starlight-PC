@@ -1,11 +1,18 @@
 import { writeFile, mkdir, remove } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { apiFetch } from '$lib/api/client';
-import { ModVersionInfo, ModVersion, ModResponse, type ModDependency } from '../mods/schema';
+import {
+	ModVersionInfo as ModVersionInfoSchema,
+	ModVersion,
+	ModResponse,
+	type ModVersionInfo,
+	type ModDependency
+} from '../mods/schema';
 import { type } from 'arktype';
 import * as semver from 'semver';
 
 const ModVersionsArray = type(ModVersion.array());
+const ModVersionInfoValidator = type(ModVersionInfoSchema);
 
 export interface DependencyWithMeta extends ModDependency {
 	modName: string;
@@ -18,7 +25,10 @@ class ModInstallService {
 	}
 
 	async getModVersionInfo(modId: string, version: string): Promise<ModVersionInfo> {
-		return await apiFetch(`/api/v2/mods/${modId}/versions/${version}/info`, type(ModVersionInfo));
+		return await apiFetch(
+			`/api/v2/mods/${modId}/versions/${version}/info`,
+			ModVersionInfoValidator
+		);
 	}
 
 	async getModById(modId: string): Promise<typeof ModResponse.infer> {
