@@ -28,7 +28,9 @@ fn emit_progress<R: Runtime>(
     total: Option<u64>,
     stage: &str,
 ) {
-    let progress = total.map(|t| downloaded as f64 / t as f64 * 100.0).unwrap_or(0.0);
+    let progress = total
+        .map(|t| downloaded as f64 / t as f64 * 100.0)
+        .unwrap_or(0.0);
     let _ = app.emit(
         "mod-download-progress",
         ModDownloadProgress {
