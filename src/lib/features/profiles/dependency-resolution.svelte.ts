@@ -24,25 +24,26 @@ export function useDependencyResolution(
 		try {
 			const resolved = await modInstallService.resolveDependencies(dependencies);
 			state.resolvedDependencies = resolved;
-			state.selectedDependencies = new SvelteSet(
-				resolved
-					.filter((d: DependencyWithMeta) => d.type !== 'conflict')
-					.map((d: DependencyWithMeta) => d.mod_id)
-			);
+			state.selectedDependencies.clear();
+			for (const d of resolved) {
+				if (d.type !== 'conflict') {
+					state.selectedDependencies.add(d.mod_id);
+				}
+			}
 		} catch {
 			state.resolvedDependencies = [];
-			state.selectedDependencies = new SvelteSet();
+			state.selectedDependencies.clear();
 		} finally {
 			state.isLoadingDeps = false;
 		}
 	}
 
 	function toggleDependency(modId: string) {
-		state.selectedDependencies = new SvelteSet(
-			state.selectedDependencies.has(modId)
-				? [...state.selectedDependencies].filter((id) => id !== modId)
-				: [...state.selectedDependencies, modId]
-		);
+		if (state.selectedDependencies.has(modId)) {
+			state.selectedDependencies.delete(modId);
+		} else {
+			state.selectedDependencies.add(modId);
+		}
 	}
 
 	$effect(() => {
@@ -50,7 +51,7 @@ export function useDependencyResolution(
 			loadDependencies(versionInfo.dependencies);
 		} else if (versionInfo) {
 			state.resolvedDependencies = [];
-			state.selectedDependencies = new SvelteSet();
+			state.selectedDependencies.clear();
 		}
 		state.installableDependencies = state.resolvedDependencies.filter(
 			(d: DependencyWithMeta) => d.type !== 'conflict'
