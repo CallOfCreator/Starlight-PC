@@ -14,9 +14,9 @@
 
 	let { post, isSelected = false, onclick }: Props = $props();
 
-	function safeParseMarkdown(content: string): string | Promise<string> {
+	function safeParseMarkdown(content: string): string {
 		try {
-			return marked.parse(content);
+			return marked.parse(content, { async: false });
 		} catch {
 			return '<p>Failed to render content</p>';
 		}
