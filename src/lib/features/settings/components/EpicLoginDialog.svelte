@@ -139,7 +139,7 @@
 						{#if isLoading}
 							<LoaderCircle class="h-4 w-4 animate-spin" />
 						{:else}
-							<LogOut class="h-4 w-4" />
+							<LogOut />
 						{/if}
 						Logout
 					</Button>
@@ -161,9 +161,9 @@
 					onclick={() => (showManualFallback = !showManualFallback)}
 				>
 					{#if showManualFallback}
-						<ChevronUp class="h-4 w-4" />
+						<ChevronUp size={16} />
 					{:else}
-						<ChevronDown class="h-4 w-4" />
+						<ChevronDown size={16} />
 					{/if}
 					Having trouble? Use manual login
 				</button>
