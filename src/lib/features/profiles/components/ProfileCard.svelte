@@ -171,13 +171,9 @@
 		<Card.Content class="pt-4">
 			<ProfileModsList
 				allMods={allMods()}
-				showAllMods
+				{showAllMods}
 				onToggleShowAll={() => (showAllMods = !showAllMods)}
 			/>
 		</Card.Content>
 	</Card.Root>
 </div>
-
-<style lang="postcss">
-	@reference "$lib/../app.css";
-</style>
