@@ -104,6 +104,13 @@
 		}
 	});
 
+	// Update selected version to match installed version when profile changes
+	$effect(() => {
+		if (unifiedMod && unifiedMod.source === 'managed' && unifiedMod.version) {
+			selectedVersion = unifiedMod.version;
+		}
+	});
+
 	// ============ HANDLERS ============
 
 	async function handleRemoveMod() {

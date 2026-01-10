@@ -53,9 +53,8 @@
 
 	const selectedProfile = $derived(profiles.find((p) => p.id === selectedProfileId));
 
-	const isModInstalledInProfile = $derived(
-		selectedProfile?.mods.some((m) => m.mod_id === modId) ?? false
-	);
+	const installedModInProfile = $derived(selectedProfile?.mods.find((m) => m.mod_id === modId));
+	const installedVersion = $derived(installedModInProfile?.version ?? '');
 
 	const installedDepsInProfile = $derived(
 		new Set(selectedProfile?.mods.map((m) => m.mod_id) ?? [])
@@ -184,11 +183,12 @@
 					</Select.Trigger>
 					<Select.Content>
 						{#each profiles as p (p.id)}
+							{@const installedMod = p.mods.find((m) => m.mod_id === modId)}
 							<Select.Item value={p.id}>
 								<span class="flex w-full items-center justify-between gap-3">
 									<span>{p.name}</span>
-									{#if p.mods.some((m) => m.mod_id === modId)}
-										<Badge variant="secondary" class="text-[10px]">Installed</Badge>
+									{#if installedMod}
+										<Badge variant="secondary" class="text-[10px]">v{installedMod.version}</Badge>
 									{/if}
 								</span>
 							</Select.Item>
@@ -197,13 +197,27 @@
 				</Select.Root>
 			</div>
 
+			<!-- Version being installed -->
+			<div class="rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+				<div class="flex items-center justify-between">
+					<span class="text-xs text-muted-foreground">Installing version</span>
+					<Badge variant="default" class="text-xs">v{selectedVersion}</Badge>
+				</div>
+			</div>
+
 			<!-- Already installed warning -->
-			{#if isModInstalledInProfile}
+			{#if installedVersion}
 				<div
-					class="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400"
+					class="flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400"
 				>
-					<TriangleAlert size={16} class="shrink-0" />
-					<span>This mod is already installed in this profile</span>
+					<TriangleAlert size={16} class="mt-0.5 shrink-0" />
+					<div class="flex flex-col gap-0.5">
+						<span>Currently installed: v{installedVersion}</span>
+						{#if installedVersion !== selectedVersion}
+							<span class="text-xs opacity-80">Installing will replace with v{selectedVersion}</span
+							>
+						{/if}
+					</div>
 				</div>
 			{/if}
 
@@ -301,10 +315,10 @@
 										{/if}
 									</div>
 								{:else if state?.status === 'complete'}
-									<Check class="h-3.5 w-3.5 text-green-500" />
+									<Check size={14} class="text-green-500" />
 									<span class="text-xs font-medium">{downloadingModId}</span>
 								{:else}
-									<LoaderCircle class="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+									<LoaderCircle size={14} class="animate-spin text-muted-foreground" />
 									<span class="text-xs text-muted-foreground">{downloadingModId}</span>
 								{/if}
 							</div>
@@ -328,7 +342,7 @@
 		<Button
 			class="flex-1 gap-2"
 			onclick={handleInstall}
-			disabled={isInstalling || !selectedProfileId || !selectedVersion || isModInstalledInProfile}
+			disabled={isInstalling || !selectedProfileId || !selectedVersion}
 		>
 			{#if isInstalling}
 				<LoaderCircle class="h-4 w-4 animate-spin" />
