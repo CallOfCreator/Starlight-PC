@@ -7,7 +7,6 @@
 	import type { Profile, UnifiedMod } from '../schema';
 	import type { Mod } from '$lib/features/mods/schema';
 	import { gameState } from '../game-state-service.svelte';
-	import { profileService } from '../profile-service';
 	import { installProgress } from '../install-progress.svelte';
 	import { useDeleteUnifiedMod, useRetryBepInExInstall } from '../mutations';
 	import { showError } from '$lib/utils/toast';
@@ -20,6 +19,7 @@
 	import { getSidebar } from '$lib/state/sidebar.svelte';
 	import { Package, CircleAlert } from '@lucide/svelte';
 	import { CalendarDays, Clock, RotateCcw, Download } from '@jis3r/icons';
+	import { profileQueries } from '../queries';
 
 	let {
 		profile,
