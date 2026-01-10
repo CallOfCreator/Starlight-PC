@@ -7,7 +7,6 @@
 	import type { Profile, UnifiedMod } from '../schema';
 	import type { Mod } from '$lib/features/mods/schema';
 	import { gameState } from '../game-state-service.svelte';
-	import { profileService } from '../profile-service';
 	import { installProgress } from '../install-progress.svelte';
 	import { useDeleteUnifiedMod, useRetryBepInExInstall } from '../mutations';
 	import { showError } from '$lib/utils/toast';
@@ -16,14 +15,31 @@
 	import { revealItemInDir } from '@tauri-apps/plugin-opener';
 	import ProfileCardActions from './ProfileCardActions.svelte';
 	import ProfileModsList from './ProfileModsList.svelte';
+	import ModDetailsSidebar from '$lib/features/mods/components/ModDetailsSidebar.svelte';
+	import { getSidebar } from '$lib/state/sidebar.svelte';
 	import { Package, CircleAlert } from '@lucide/svelte';
 	import { CalendarDays, Clock, RotateCcw, Download } from '@jis3r/icons';
+	import { profileQueries } from '../queries';
 
 	let {
 		profile,
 		onlaunch,
 		ondelete
 	}: { profile: Profile; onlaunch?: () => void; ondelete?: () => void } = $props();
+
+	const sidebar = getSidebar();
+	let selectedModId = $state<string | null>(null);
+
+	function handleModClick(modId: string) {
+		const contentId = `profile-${profile.id}-mod-${modId}`;
+		const opened = sidebar.open(sidebarContent, () => (selectedModId = null), contentId);
+		selectedModId = opened ? modId : null;
+	}
+
+	function closeSidebar() {
+		selectedModId = null;
+		sidebar.close();
+	}
 
 	const deleteMod = useDeleteUnifiedMod();
 	const retryBepInExInstall = useRetryBepInExInstall();
@@ -84,11 +100,7 @@
 		)
 	);
 
-	const unifiedModsQuery = createQuery(() => ({
-		queryKey: ['unified-mods', profile.id],
-		queryFn: () => profileService.getUnifiedMods(profile.id),
-		staleTime: 1000 * 10
-	}));
+	const unifiedModsQuery = createQuery(() => profileQueries.unifiedMods(profile.id));
 
 	const modCount = $derived(unifiedModsQuery.data?.length ?? 0);
 
@@ -173,7 +185,14 @@
 				allMods={allMods()}
 				{showAllMods}
 				onToggleShowAll={() => (showAllMods = !showAllMods)}
+				onModClick={handleModClick}
 			/>
 		</Card.Content>
 	</Card.Root>
 </div>
+
+{#snippet sidebarContent()}
+	{#if selectedModId}
+		<ModDetailsSidebar modId={selectedModId} profileId={profile.id} onclose={closeSidebar} />
+	{/if}
+{/snippet}
