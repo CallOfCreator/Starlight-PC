@@ -176,6 +176,12 @@
 					<Skeleton class="h-4 w-2/3" />
 				</div>
 			</div>
+		{:else if modQuery.isError || modInfoQuery.isError}
+			<div class="flex h-full flex-col items-center justify-center p-6 text-center">
+				<ImageOff class="mb-4 h-12 w-12 text-muted-foreground/30" />
+				<h3 class="mb-1 font-semibold">Failed to load mod</h3>
+				<p class="text-sm text-muted-foreground">There was an error loading the mod details.</p>
+			</div>
 		{:else if mod}
 			<div class="space-y-5 p-5">
 				<!-- Thumbnail -->
