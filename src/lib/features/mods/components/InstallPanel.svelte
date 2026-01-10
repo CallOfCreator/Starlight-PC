@@ -48,6 +48,7 @@
 	let selectedDependencies = $state<Set<string>>(new Set());
 	let modsBeingInstalled = $state<string[]>([]);
 	let progressUnlisten: UnlistenFn | null = null;
+	let hasInitializedDeps = $state(false);
 
 	// ============ DERIVED ============
 
@@ -78,10 +79,11 @@
 
 	// Initialize selected dependencies when resolved deps change
 	$effect(() => {
-		if (resolvedDeps.length > 0) {
+		if (resolvedDeps.length > 0 && !hasInitializedDeps) {
 			selectedDependencies = new Set(
 				resolvedDeps.filter((d) => d.type !== 'conflict').map((d) => d.mod_id)
 			);
+			hasInitializedDeps = true;
 		}
 	});
 
