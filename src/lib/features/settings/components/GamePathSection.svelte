@@ -124,7 +124,7 @@
 					onclick={() => (gamePlatform = 'steam')}
 					class="flex-1"
 				>
-					Steam
+					Steam / Itch.io
 				</Button>
 				<Button
 					variant={gamePlatform === 'epic' ? 'default' : 'outline'}
