@@ -15,6 +15,7 @@ fn verify_among_us_directory(path: &Path) -> bool {
 
 /// Checks if the path is in the WindowsApps folder (Xbox/MS Store installation).
 /// These paths cannot be used for auto-detection since they require special launch handling.
+#[cfg(target_os = "windows")]
 fn is_windows_apps_path(path: &Path) -> bool {
     path.to_string_lossy()
         .to_lowercase()
