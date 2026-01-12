@@ -265,13 +265,21 @@ pub async fn prepare_xbox_launch(game_dir: String, profile_path: String) -> Resu
     let target_assembly_str = target_assembly.to_string_lossy().replace('\\', "\\\\");
     let coreclr_path_str = coreclr_path.to_string_lossy().replace('\\', "\\\\");
 
-    // Replace the values in the INI content
+    // Replace the values in the INI content (skip comments starting with # or ;)
     let mut modified_content = String::new();
     for line in ini_content.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("target_assembly") {
+        if !trimmed.starts_with('#')
+            && !trimmed.starts_with(';')
+            && trimmed.starts_with("target_assembly")
+            && trimmed.contains('=')
+        {
             modified_content.push_str(&format!("target_assembly = \"{}\"\n", target_assembly_str));
-        } else if trimmed.starts_with("coreclr_path") {
+        } else if !trimmed.starts_with('#')
+            && !trimmed.starts_with(';')
+            && trimmed.starts_with("coreclr_path")
+            && trimmed.contains('=')
+        {
             modified_content.push_str(&format!("coreclr_path = \"{}\"\n", coreclr_path_str));
         } else {
             modified_content.push_str(line);
