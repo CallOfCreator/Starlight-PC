@@ -206,12 +206,6 @@ pub async fn get_xbox_app_id() -> Result<String, String> {
     Ok(app_id)
 }
 
-#[cfg(not(windows))]
-#[tauri::command]
-pub async fn get_xbox_app_id() -> Result<String, String> {
-    Err("Xbox game launching is only supported on Windows".to_string())
-}
-
 /// Prepares an Xbox launch by copying doorstop files and modifying the config.
 #[tauri::command]
 pub async fn prepare_xbox_launch(game_dir: String, profile_path: String) -> Result<(), String> {
@@ -314,12 +308,6 @@ pub async fn prepare_xbox_launch(game_dir: String, profile_path: String) -> Resu
     Ok(())
 }
 
-#[cfg(not(windows))]
-#[tauri::command]
-pub async fn prepare_xbox_launch() -> Result<String, String> {
-    Err("Xbox game launching is only supported on Windows".to_string())
-}
-
 /// Launches the Xbox/Microsoft Store version of Among Us.
 /// Note: UWP app lifecycle cannot be tracked, so game state will show as "running"
 /// but won't automatically reset when the game closes.
@@ -342,12 +330,6 @@ pub async fn launch_xbox<R: Runtime>(app: AppHandle<R>, app_id: String) -> Resul
     info!("Xbox game launched (no process monitoring available for UWP apps)");
 
     Ok(())
-}
-
-#[cfg(not(windows))]
-#[tauri::command]
-pub async fn launch_xbox() -> Result<String, String> {
-    Err("Xbox game launching is only supported on Windows".to_string())
 }
 
 /// Cleans up Xbox doorstop files from the game directory.
@@ -379,10 +361,4 @@ pub async fn cleanup_xbox_files(game_dir: String) -> Result<(), String> {
 
     info!("Xbox cleanup complete");
     Ok(())
-}
-
-#[cfg(not(windows))]
-#[tauri::command]
-pub async fn cleanup_xbox_files() -> Result<String, String> {
-    Err("Xbox game launching is only supported on Windows".to_string())
 }
