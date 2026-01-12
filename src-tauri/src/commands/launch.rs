@@ -163,3 +163,195 @@ pub async fn launch_vanilla<R: Runtime>(
 
     launch(app, cmd)
 }
+
+// =============================================================================
+// Xbox / Microsoft Store Commands
+// =============================================================================
+
+/// Gets the Xbox AppUserModelId for Among Us by querying installed Start Menu apps.
+#[tauri::command]
+pub async fn get_xbox_app_id() -> Result<String, String> {
+    info!("get_xbox_app_id: Querying for Among Us in Start Apps");
+
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "(Get-StartApps | Where-Object { $_.Name -like '*Among Us*' }).AppId",
+        ])
+        .output()
+        .map_err(|e| {
+            error!("Failed to run PowerShell: {}", e);
+            format!("Failed to run PowerShell: {e}")
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        error!("PowerShell command failed: {}", stderr);
+        return Err(format!("PowerShell command failed: {stderr}"));
+    }
+
+    let app_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if app_id.is_empty() {
+        error!("Among Us not found in Microsoft Store apps");
+        return Err(
+            "Among Us not found in Microsoft Store apps. Please ensure the game is installed."
+                .to_string(),
+        );
+    }
+
+    info!("Found Xbox AppUserModelId: {}", app_id);
+    Ok(app_id)
+}
+
+/// Prepares an Xbox launch by copying doorstop files and modifying the config.
+#[tauri::command]
+pub async fn prepare_xbox_launch(game_dir: String, profile_path: String) -> Result<(), String> {
+    info!(
+        "prepare_xbox_launch: game_dir={}, profile_path={}",
+        game_dir, profile_path
+    );
+
+    let game_dir = PathBuf::from(&game_dir);
+    let profile_path = PathBuf::from(&profile_path);
+
+    // Source files in profile root
+    let src_dll = profile_path.join("winhttp.dll");
+    let src_ini = profile_path.join("doorstop_config.ini");
+
+    // Destination files in game directory
+    let dst_dll = game_dir.join("winhttp.dll");
+    let dst_ini = game_dir.join("doorstop_config.ini");
+
+    // Check source files exist
+    if !src_dll.exists() {
+        error!("winhttp.dll not found at: {:?}", src_dll);
+        return Err(
+            "winhttp.dll not found in profile. Please wait for BepInEx installation to complete."
+                .to_string(),
+        );
+    }
+    if !src_ini.exists() {
+        error!("doorstop_config.ini not found at: {:?}", src_ini);
+        return Err(
+            "doorstop_config.ini not found in profile. Please wait for BepInEx installation to complete."
+                .to_string(),
+        );
+    }
+
+    // Copy winhttp.dll
+    debug!("Copying winhttp.dll to game directory");
+    std::fs::copy(&src_dll, &dst_dll).map_err(|e| {
+        error!("Failed to copy winhttp.dll: {}", e);
+        format!("Failed to copy winhttp.dll: {e}")
+    })?;
+
+    // Read and modify doorstop_config.ini
+    debug!("Reading doorstop_config.ini");
+    let ini_content = std::fs::read_to_string(&src_ini).map_err(|e| {
+        error!("Failed to read doorstop_config.ini: {}", e);
+        format!("Failed to read doorstop_config.ini: {e}")
+    })?;
+
+    // Build absolute paths for the profile
+    let target_assembly = profile_path
+        .join("BepInEx")
+        .join("core")
+        .join("BepInEx.Unity.IL2CPP.dll");
+    let coreclr_path = profile_path.join("dotnet").join("coreclr.dll");
+
+    // Escape backslashes for INI file (Windows paths)
+    let target_assembly_str = target_assembly.to_string_lossy().replace('\\', "\\\\");
+    let coreclr_path_str = coreclr_path.to_string_lossy().replace('\\', "\\\\");
+
+    // Replace the values in the INI content
+    let mut modified_content = String::new();
+    for line in ini_content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("target_assembly") {
+            modified_content.push_str(&format!("target_assembly = \"{}\"\n", target_assembly_str));
+        } else if trimmed.starts_with("coreclr_path") {
+            modified_content.push_str(&format!("coreclr_path = \"{}\"\n", coreclr_path_str));
+        } else {
+            modified_content.push_str(line);
+            modified_content.push('\n');
+        }
+    }
+
+    // Write modified INI to game directory
+    debug!("Writing modified doorstop_config.ini to game directory");
+    std::fs::write(&dst_ini, modified_content).map_err(|e| {
+        error!("Failed to write doorstop_config.ini: {}", e);
+        format!("Failed to write doorstop_config.ini: {e}")
+    })?;
+
+    info!("Xbox launch preparation complete");
+    Ok(())
+}
+
+/// Launches the Xbox/Microsoft Store version of Among Us.
+#[tauri::command]
+pub async fn launch_xbox<R: Runtime>(app: AppHandle<R>, app_id: String) -> Result<(), String> {
+    info!("launch_xbox: app_id={}", app_id);
+
+    // Build the shell:AppsFolder URI
+    let uri = format!("shell:AppsFolder\\{}", app_id);
+    debug!("Launching via: {}", uri);
+
+    // Use 'explorer' to open the shell URI (more reliable than 'start')
+    let status = Command::new("explorer")
+        .arg(&uri)
+        .spawn()
+        .map_err(|e| {
+            error!("Failed to launch Xbox game: {}", e);
+            format!("Failed to launch Xbox game: {e}")
+        })?
+        .wait()
+        .map_err(|e| {
+            error!("Failed to wait for explorer: {}", e);
+            format!("Failed to wait for explorer: {e}")
+        })?;
+
+    if !status.success() {
+        error!("Explorer exited with non-zero status");
+        return Err("Failed to launch Xbox game".to_string());
+    }
+
+    // Emit game state (we can't track Xbox app lifecycle)
+    let _ = app.emit("game-state-changed", GameStatePayload { running: true });
+    info!("Xbox game launched (no process monitoring available)");
+
+    Ok(())
+}
+
+/// Cleans up Xbox doorstop files from the game directory.
+#[tauri::command]
+pub async fn cleanup_xbox_files(game_dir: String) -> Result<(), String> {
+    info!("cleanup_xbox_files: game_dir={}", game_dir);
+
+    let game_dir = PathBuf::from(&game_dir);
+    let dll_path = game_dir.join("winhttp.dll");
+    let ini_path = game_dir.join("doorstop_config.ini");
+
+    // Remove winhttp.dll if it exists
+    if dll_path.exists() {
+        debug!("Removing winhttp.dll from game directory");
+        std::fs::remove_file(&dll_path).map_err(|e| {
+            error!("Failed to remove winhttp.dll: {}", e);
+            format!("Failed to remove winhttp.dll: {e}")
+        })?;
+    }
+
+    // Remove doorstop_config.ini if it exists
+    if ini_path.exists() {
+        debug!("Removing doorstop_config.ini from game directory");
+        std::fs::remove_file(&ini_path).map_err(|e| {
+            error!("Failed to remove doorstop_config.ini: {}", e);
+            format!("Failed to remove doorstop_config.ini: {e}")
+        })?;
+    }
+
+    info!("Xbox cleanup complete");
+    Ok(())
+}
