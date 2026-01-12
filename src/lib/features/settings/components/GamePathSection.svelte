@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { RefreshCw } from '@jis3r/icons';
+	import { RefreshCw, Check } from '@jis3r/icons';
 	import type { GamePlatform } from '../schema';
 	import { showError, showSuccess } from '$lib/utils/toast';
 	import { invoke } from '@tauri-apps/api/core';
@@ -14,14 +14,20 @@
 		amongUsPath = $bindable(''),
 		gamePlatform = $bindable<GamePlatform>('steam'),
 		isLoggedIn = $bindable(false),
+		pathError = '',
+		showSaved = false,
 		onRefreshAuth,
-		onClearXboxAppId
+		onClearXboxAppId,
+		onPathBlur
 	}: {
 		amongUsPath: string;
 		gamePlatform: GamePlatform;
 		isLoggedIn: boolean;
+		pathError?: string;
+		showSaved?: boolean;
 		onRefreshAuth: () => Promise<void>;
 		onClearXboxAppId: () => Promise<void>;
+		onPathBlur?: () => void;
 	} = $props();
 
 	let isDetecting = $state(false);
@@ -92,7 +98,17 @@
 </script>
 
 <div class="rounded-xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm">
-	<h2 class="mb-4 text-lg font-semibold tracking-tight">Game Configuration</h2>
+	<div class="mb-4 flex items-center justify-between">
+		<h2 class="text-lg font-semibold tracking-tight">Game Configuration</h2>
+		{#if showSaved}
+			<span
+				class="flex animate-in items-center gap-1.5 text-xs font-medium text-green-500 duration-200 fade-in"
+			>
+				<Check size={14} />
+				Saved
+			</span>
+		{/if}
+	</div>
 	<div class="space-y-4">
 		<div class="space-y-2">
 			<Label for="among-us-path">Among Us Installation Path</Label>
@@ -101,6 +117,8 @@
 					id="among-us-path"
 					bind:value={amongUsPath}
 					placeholder="C:\Program Files (x86)\Steam\steamapps\common\Among Us"
+					onblur={onPathBlur}
+					class={pathError ? 'border-destructive focus-visible:ring-destructive' : ''}
 				/>
 				<Button variant="outline" onclick={handleBrowse}>Browse</Button>
 				<Button variant="outline" onclick={handleAutoDetect} disabled={isDetecting}>
@@ -114,6 +132,9 @@
 			<p class="text-sm text-muted-foreground">
 				The folder where Among Us is installed (contains "Among Us.exe")
 			</p>
+			{#if pathError}
+				<p class="text-sm text-destructive">{pathError}</p>
+			{/if}
 		</div>
 
 		<div class="space-y-2">
