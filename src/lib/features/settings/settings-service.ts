@@ -51,8 +51,9 @@ class SettingsService {
 	/**
 	 * Auto-detects the game architecture (x86/x64) and updates the BepInEx URL accordingly.
 	 * Checks for UnityCrashHandler64.exe to determine if the game is 64-bit.
+	 * @returns The new URL if it was updated, undefined otherwise.
 	 */
-	async autoDetectBepInExArchitecture(gamePath: string): Promise<void> {
+	async autoDetectBepInExArchitecture(gamePath: string): Promise<string | undefined> {
 		const crashHandlerPath = `${gamePath}/UnityCrashHandler64.exe`;
 		const settings = await this.getSettings();
 		const currentUrl = settings.bepinex_url;
@@ -65,7 +66,9 @@ class SettingsService {
 		if (updatedUrl !== currentUrl) {
 			await this.updateSettings({ bepinex_url: updatedUrl });
 			debug(`BepInEx architecture updated to ${is64Bit ? 'x64' : 'x86'}`);
+			return updatedUrl;
 		}
+		return undefined;
 	}
 }
 

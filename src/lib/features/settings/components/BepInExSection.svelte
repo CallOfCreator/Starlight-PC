@@ -14,14 +14,12 @@
 		bepInExUrl = $bindable(''),
 		cacheBepInEx = $bindable(false),
 		isCacheExists = $bindable(false),
-		showSaved = false,
-		onUrlBlur
+		showSaved = false
 	}: {
 		bepInExUrl: string;
 		cacheBepInEx: boolean;
 		isCacheExists: boolean;
 		showSaved?: boolean;
-		onUrlBlur?: () => void;
 	} = $props();
 
 	let isCacheDownloading = $state(false);
@@ -89,7 +87,6 @@
 				id="bepinex-url"
 				bind:value={bepInExUrl}
 				placeholder="https://builds.bepinex.dev/..."
-				onblur={() => onUrlBlur?.()}
 			/>
 		</div>
 

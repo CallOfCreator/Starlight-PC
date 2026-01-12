@@ -42,6 +42,11 @@
 	let pathDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 	let urlDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
+	// Saved indicator timeouts
+	let gameConfigSavedTimeout: ReturnType<typeof setTimeout> | null = null;
+	let bepinexSavedTimeout: ReturnType<typeof setTimeout> | null = null;
+	let appBehaviorSavedTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	// Track previous values for change detection (non-reactive to avoid retriggering effects)
 	let prevPath: string | null = null;
 	let prevPlatform: GamePlatform | null = null;
@@ -86,14 +91,17 @@
 	// Show "Saved" indicator for a section
 	function showSavedIndicator(section: 'game' | 'bepinex' | 'app') {
 		if (section === 'game') {
+			if (gameConfigSavedTimeout) clearTimeout(gameConfigSavedTimeout);
 			gameConfigSaved = true;
-			setTimeout(() => (gameConfigSaved = false), 2000);
+			gameConfigSavedTimeout = setTimeout(() => (gameConfigSaved = false), 2000);
 		} else if (section === 'bepinex') {
+			if (bepinexSavedTimeout) clearTimeout(bepinexSavedTimeout);
 			bepinexSaved = true;
-			setTimeout(() => (bepinexSaved = false), 2000);
+			bepinexSavedTimeout = setTimeout(() => (bepinexSaved = false), 2000);
 		} else {
+			if (appBehaviorSavedTimeout) clearTimeout(appBehaviorSavedTimeout);
 			appBehaviorSaved = true;
-			setTimeout(() => (appBehaviorSaved = false), 2000);
+			appBehaviorSavedTimeout = setTimeout(() => (appBehaviorSaved = false), 2000);
 		}
 	}
 
@@ -105,7 +113,12 @@
 				among_us_path: localAmongUsPath,
 				game_platform: localGamePlatform
 			});
-			await settingsService.autoDetectBepInExArchitecture(localAmongUsPath);
+			const newUrl = await settingsService.autoDetectBepInExArchitecture(localAmongUsPath);
+			if (newUrl) {
+				// Sync local state to prevent desync with backend
+				localBepInExUrl = newUrl;
+				prevUrl = newUrl;
+			}
 			queryClient.invalidateQueries({ queryKey: ['settings'] });
 			showSavedIndicator('game');
 		} catch (e) {
@@ -176,7 +189,9 @@
 
 		// Debounce and save
 		pathDebounceTimeout = setTimeout(async () => {
-			if (await validatePath(path)) {
+			const isValid = await validatePath(path);
+			// Only save if path hasn't changed during validation
+			if (localAmongUsPath === path && isValid) {
 				saveGameConfig();
 			}
 		}, 500);
