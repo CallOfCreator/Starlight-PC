@@ -3,7 +3,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Switch } from '$lib/components/ui/switch';
-	import { RefreshCw, Download, Trash2 } from '@jis3r/icons';
+	import { RefreshCw, Download, Trash2, Check } from '@jis3r/icons';
 	import { showError, showSuccess } from '$lib/utils/toast';
 	import { invoke } from '@tauri-apps/api/core';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -13,11 +13,15 @@
 	let {
 		bepInExUrl = $bindable(''),
 		cacheBepInEx = $bindable(false),
-		isCacheExists = $bindable(false)
+		isCacheExists = $bindable(false),
+		showSaved = false,
+		onUrlBlur
 	}: {
 		bepInExUrl: string;
 		cacheBepInEx: boolean;
 		isCacheExists: boolean;
+		showSaved?: boolean;
+		onUrlBlur?: () => void;
 	} = $props();
 
 	let isCacheDownloading = $state(false);
@@ -67,7 +71,17 @@
 </script>
 
 <div class="rounded-xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm">
-	<h2 class="mb-4 text-lg font-semibold tracking-tight">BepInEx Configuration</h2>
+	<div class="mb-4 flex items-center justify-between">
+		<h2 class="text-lg font-semibold tracking-tight">BepInEx Configuration</h2>
+		{#if showSaved}
+			<span
+				class="flex animate-in items-center gap-1.5 text-xs font-medium text-green-500 duration-200 fade-in"
+			>
+				<Check size={14} />
+				Saved
+			</span>
+		{/if}
+	</div>
 	<div class="space-y-4">
 		<div class="space-y-2">
 			<Label for="bepinex-url">BepInEx Download URL</Label>
@@ -75,6 +89,7 @@
 				id="bepinex-url"
 				bind:value={bepInExUrl}
 				placeholder="https://builds.bepinex.dev/..."
+				onblur={onUrlBlur}
 			/>
 		</div>
 
