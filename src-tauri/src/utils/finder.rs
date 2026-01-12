@@ -6,15 +6,29 @@ use winreg::{RegKey, enums::*};
 
 const AMONG_US_EXE: &str = "Among Us.exe";
 const EPIC_FOLDER: &str = "Among Us_Data/StreamingAssets/aa/EGS";
+const XBOX_FOLDER: &str = "Among Us_Data/StreamingAssets/aa/Win10";
 
 /// Checks if the directory exists and contains the Among Us executable.
 fn verify_among_us_directory(path: &Path) -> bool {
     path.is_dir() && path.join(AMONG_US_EXE).is_file()
 }
 
+/// Checks if the path is in the WindowsApps folder (Xbox/MS Store installation).
+/// These paths cannot be used for auto-detection since they require special launch handling.
+#[cfg(target_os = "windows")]
+fn is_windows_apps_path(path: &Path) -> bool {
+    path.to_string_lossy()
+        .to_lowercase()
+        .contains("windowsapps")
+}
+
 /// Checks if the directory contains Epic Games indicator (Among Us_Data\StreamingAssets\aa\EGS folder).
 fn is_epic_installation(path: &Path) -> bool {
     path.join(EPIC_FOLDER).is_dir()
+}
+
+fn is_xbox_installation(path: &Path) -> bool {
+    path.join(XBOX_FOLDER).is_dir()
 }
 
 #[cfg(target_os = "windows")]
@@ -47,6 +61,14 @@ fn find_among_us_from_registry() -> Option<PathBuf> {
             .filter(|directory| verify_among_us_directory(directory));
 
         if let Some(dir) = directory {
+            // Skip WindowsApps paths - Xbox installations require manual path selection
+            if is_windows_apps_path(&dir) {
+                info!(
+                    "Skipping WindowsApps path (Xbox installation): {}",
+                    dir.display()
+                );
+                continue;
+            }
             info!("Found Among Us via registry: {}", dir.display());
             return Some(dir);
         }
@@ -107,6 +129,8 @@ pub fn detect_platform(path: &str) -> Result<String, String> {
 
     let platform = if is_epic_installation(&path) {
         "epic"
+    } else if is_xbox_installation(&path) {
+        "xbox"
     } else {
         "steam"
     };

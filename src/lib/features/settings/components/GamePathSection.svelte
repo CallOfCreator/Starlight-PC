@@ -14,16 +14,37 @@
 		amongUsPath = $bindable(''),
 		gamePlatform = $bindable<GamePlatform>('steam'),
 		isLoggedIn = $bindable(false),
-		onRefreshAuth
+		onRefreshAuth,
+		onClearXboxAppId
 	}: {
 		amongUsPath: string;
 		gamePlatform: GamePlatform;
 		isLoggedIn: boolean;
 		onRefreshAuth: () => Promise<void>;
+		onClearXboxAppId: () => Promise<void>;
 	} = $props();
 
 	let isDetecting = $state(false);
 	let epicLoginOpen = $state(false);
+
+	// Track previous values to detect user-initiated changes (not initial load)
+	let prevPath = $state<string | null>(null);
+	let prevPlatform = $state<GamePlatform | null>(null);
+
+	// Clear xbox_app_id when path or platform changes (skip initial mount)
+	$effect(() => {
+		if (prevPath === null || prevPlatform === null) {
+			// First run - just record initial values without triggering clear
+			prevPath = amongUsPath;
+			prevPlatform = gamePlatform;
+			return;
+		}
+		if (amongUsPath !== prevPath || gamePlatform !== prevPlatform) {
+			prevPath = amongUsPath;
+			prevPlatform = gamePlatform;
+			onClearXboxAppId();
+		}
+	});
 
 	async function handleAutoDetect() {
 		isDetecting = true;
@@ -57,6 +78,12 @@
 			});
 			if (selected) {
 				amongUsPath = selected;
+				try {
+					const platform = await invoke<string>('get_game_platform', { path: selected });
+					gamePlatform = platform as GamePlatform;
+				} catch (platformError) {
+					error(`Platform detection failed: ${platformError}`);
+				}
 			}
 		} catch (e) {
 			showError(e);
@@ -97,7 +124,7 @@
 					onclick={() => (gamePlatform = 'steam')}
 					class="flex-1"
 				>
-					Steam
+					Steam / Itch.io
 				</Button>
 				<Button
 					variant={gamePlatform === 'epic' ? 'default' : 'outline'}
@@ -106,12 +133,21 @@
 				>
 					Epic Games
 				</Button>
+				<Button
+					variant={gamePlatform === 'xbox' ? 'default' : 'outline'}
+					onclick={() => (gamePlatform = 'xbox')}
+					class="flex-1"
+				>
+					Xbox / MS Store
+				</Button>
 			</div>
 			<p class="text-sm text-muted-foreground">
 				{#if gamePlatform === 'steam'}
 					Steam installation
-				{:else}
+				{:else if gamePlatform === 'epic'}
 					Epic Games installation (requires Epic Games login)
+				{:else}
+					Xbox / Microsoft Store installation
 				{/if}
 			</p>
 		</div>

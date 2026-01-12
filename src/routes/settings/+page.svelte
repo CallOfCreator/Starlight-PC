@@ -29,6 +29,13 @@
 		isLoggedIn = await epicService.isLoggedIn();
 	}
 
+	async function clearXboxAppId() {
+		// Clear cached Xbox AppUserModelId when path or platform changes
+		if (settings?.xbox_app_id) {
+			await settingsService.updateSettings({ xbox_app_id: undefined });
+		}
+	}
+
 	async function checkCacheExists() {
 		try {
 			const cachePath = await settingsService.getBepInExCachePath();
@@ -123,6 +130,7 @@
 					bind:gamePlatform={localGamePlatform}
 					bind:isLoggedIn
 					onRefreshAuth={refreshEpicAuth}
+					onClearXboxAppId={clearXboxAppId}
 				/>
 			</div>
 
