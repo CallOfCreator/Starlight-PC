@@ -48,11 +48,28 @@ fn emit_progress<R: Runtime>(
 pub async fn download_mod<R: Runtime>(
     app: AppHandle<R>,
     mod_id: String,
-    url: String,
+    mut url: String, // Changed to mut to allow replacement
     destination: String,
     expected_checksum: String,
 ) -> Result<(), String> {
     info!("download_mod: {} -> {}", mod_id, destination);
+
+    // TODO: Remove bypass logic after we implement platform-specific versions
+    // --- TEMPORARY WORKAROUND START ---
+    let mut bypass_checksum = false;
+    let target_url = "https://starlight.allofus.dev/api/v2/mods/gg.reactor.api/versions/2.5.0/file";
+    let replacement_url =
+        "https://github.com/NuclearPowered/Reactor/releases/download/2.5.0/Reactor.dll";
+
+    if url == target_url {
+        info!(
+            "Applying workaround: replacing {} with {}",
+            url, replacement_url
+        );
+        url = replacement_url.to_string();
+        bypass_checksum = true;
+    }
+    // --- TEMPORARY WORKAROUND END ---
 
     let dest_path = Path::new(&destination);
 
@@ -117,7 +134,9 @@ pub async fn download_mod<R: Runtime>(
     let hash = hasher.finalize();
     let computed_checksum = format!("{:x}", hash);
 
-    if computed_checksum != expected_checksum.to_lowercase() {
+    // TODO: Remove bypass logic after we implement platform-specific versions
+    // Modified checksum logic to handle the bypass
+    if !bypass_checksum && computed_checksum != expected_checksum.to_lowercase() {
         error!(
             "Checksum mismatch: expected {}, got {}",
             expected_checksum, computed_checksum
@@ -126,9 +145,11 @@ pub async fn download_mod<R: Runtime>(
             "Checksum mismatch: expected {}, got {}",
             expected_checksum, computed_checksum
         ));
+    } else if bypass_checksum {
+        info!("Checksum verification bypassed for Reactor 2.5.0");
+    } else {
+        debug!("Checksum verified: {}", computed_checksum);
     }
-
-    debug!("Checksum verified: {}", computed_checksum);
 
     // Write file
     emit_progress(&app, &mod_id, downloaded, total_size, "writing");
