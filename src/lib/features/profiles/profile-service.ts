@@ -1,19 +1,23 @@
-import { Store } from '@tauri-apps/plugin-store';
 import { mkdir, remove, readDir } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import { queryClient } from '$lib/state/queryClient';
-import type { Profile, UnifiedMod } from './schema';
-import { downloadBepInEx } from './bepinex-download';
+import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getStore } from '$lib/state/store';
+import { info, warn, error as logError, debug } from '@tauri-apps/plugin-log';
+import { type } from 'arktype';
+import { ProfileEntry, type Profile, type UnifiedMod, type BepInExProgress } from './schema';
 import { settingsService } from '../settings/settings-service';
+import { gameState, invalidateProfiles } from './game-state.svelte';
+import { showError } from '$lib/utils/toast';
+
+const ProfilesArray = type(ProfileEntry.array());
 
 class ProfileService {
-	async getStore(): Promise<Store> {
-		return await Store.load('registry.json');
-	}
-
 	async getProfiles(): Promise<Profile[]> {
-		const store = await this.getStore();
-		const profiles = (await store.get<Profile[]>('profiles')) ?? [];
+		const store = await getStore();
+		const raw = await store.get('profiles');
+		const result = ProfilesArray(raw ?? []);
+		const profiles = result instanceof type.errors ? [] : result;
 
 		return profiles.sort((a, b) => {
 			const aLaunched = a.last_launched_at ?? 0;
@@ -30,12 +34,17 @@ class ProfileService {
 
 	async createProfile(name: string): Promise<Profile> {
 		const trimmed = name.trim();
-		if (!trimmed) throw new Error('Profile name cannot be empty');
+		if (!trimmed) {
+			logError('Attempted to create profile with empty name');
+			throw new Error('Profile name cannot be empty');
+		}
 
-		const store = await this.getStore();
+		info(`Creating profile: ${trimmed}`);
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 
 		if (profiles.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
+			warn(`Profile '${trimmed}' already exists`);
 			throw new Error(`Profile '${trimmed}' already exists`);
 		}
 
@@ -47,6 +56,7 @@ class ProfileService {
 		const profilePath = await join(profilesDir, profileId);
 
 		await mkdir(profilePath, { recursive: true });
+		debug(`Created profile directory: ${profilePath}`);
 
 		const profile: Profile = {
 			id: profileId,
@@ -62,35 +72,92 @@ class ProfileService {
 		profiles.push(profile);
 		await store.set('profiles', profiles);
 		await store.save();
+		info(`Profile created: ${profileId}`);
 
 		this.installBepInExInBackground(profileId, profilePath).catch((err) => {
-			console.error(`Failed to install BepInEx for profile ${profileId}:`, err);
+			logError(`installBepInExInBackground failed: ${err instanceof Error ? err.message : err}`);
+			showError(err, 'BepInEx installation');
 		});
 
 		return profile;
 	}
 
 	private async installBepInExInBackground(profileId: string, profilePath: string): Promise<void> {
+		info(`Installing BepInEx for profile: ${profileId}`);
 		const bepinexUrl = await this.getBepInExUrl();
-		await downloadBepInEx(profilePath, bepinexUrl);
 
-		const store = await this.getStore();
-		const profiles = (await store.get<Profile[]>('profiles')) ?? [];
-		const profileIndex = profiles.findIndex((p) => p.id === profileId);
+		try {
+			await this.downloadBepInEx(profilePath, bepinexUrl, (progress) => {
+				gameState.setBepInExProgress(profileId, progress);
+			});
 
-		if (profileIndex >= 0) {
-			profiles[profileIndex].bepinex_installed = true;
-			await store.set('profiles', profiles);
-			await store.save();
+			const store = await getStore();
+			const raw = await store.get('profiles');
+			const result = ProfilesArray(raw ?? []);
+			const profiles = result instanceof type.errors ? [] : result;
+			const profileIndex = profiles.findIndex((p) => p.id === profileId);
+
+			if (profileIndex >= 0) {
+				profiles[profileIndex].bepinex_installed = true;
+				await store.set('profiles', profiles);
+				await store.save();
+				info(`BepInEx installed for profile: ${profileId}`);
+				invalidateProfiles();
+			}
+			gameState.clearBepInExProgress(profileId);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Unknown error';
+			logError(`BepInEx installation failed for profile ${profileId}: ${message}`);
+			gameState.setBepInExError(profileId, message);
+			showError(err, 'BepInEx installation');
+		}
+	}
+
+	async retryBepInExInstall(profileId: string, profilePath: string): Promise<void> {
+		gameState.clearBepInExProgress(profileId);
+		await this.installBepInExInBackground(profileId, profilePath);
+	}
+
+	private async downloadBepInEx(
+		profilePath: string,
+		bepinexUrl: string,
+		onProgress?: (progress: BepInExProgress) => void
+	): Promise<void> {
+		let unlisten: UnlistenFn | undefined;
+
+		try {
+			if (onProgress) {
+				unlisten = await listen<BepInExProgress>('bepinex-progress', (event) => {
+					onProgress(event.payload);
+				});
+			}
+
+			const settings = await settingsService.getSettings();
+			const cachePath = settings.cache_bepinex ? await settingsService.getBepInExCachePath() : null;
+
+			await invoke('install_bepinex', {
+				url: bepinexUrl,
+				destination: profilePath,
+				cachePath
+			});
+		} finally {
+			unlisten?.();
 		}
 	}
 
 	async deleteProfile(profileId: string): Promise<void> {
-		const store = await this.getStore();
+		info(`Deleting profile: ${profileId}`);
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
-		if (!profile) throw new Error(`Profile '${profileId}' not found`);
+		if (!profile) {
+			logError(`Profile not found: ${profileId}`);
+			throw new Error(`Profile '${profileId}' not found`);
+		}
+
+		// Clear any install progress/error state
+		gameState.clearBepInExProgress(profileId);
 
 		await remove(profile.path, { recursive: true });
 		await store.set(
@@ -98,6 +165,7 @@ class ProfileService {
 			profiles.filter((p) => p.id !== profileId)
 		);
 		await store.save();
+		info(`Profile deleted: ${profileId}`);
 	}
 
 	async getActiveProfile(): Promise<Profile | null> {
@@ -114,7 +182,7 @@ class ProfileService {
 	}
 
 	async updateLastLaunched(profileId: string): Promise<void> {
-		const store = await this.getStore();
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
@@ -122,6 +190,7 @@ class ProfileService {
 			profile.last_launched_at = Date.now();
 			await store.set('profiles', profiles);
 			await store.save();
+			debug(`Updated last_launched for profile: ${profileId}`);
 		}
 	}
 
@@ -131,17 +200,23 @@ class ProfileService {
 		version: string,
 		file: string
 	): Promise<void> {
-		const store = await this.getStore();
+		info(`Adding mod ${modId} v${version} to profile ${profileId}`);
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
-		if (!profile) throw new Error(`Profile '${profileId}' not found`);
+		if (!profile) {
+			logError(`Profile not found: ${profileId}`);
+			throw new Error(`Profile '${profileId}' not found`);
+		}
 
 		const modIndex = profile.mods.findIndex((m) => m.mod_id === modId);
 		if (modIndex >= 0) {
 			profile.mods[modIndex] = { mod_id: modId, version, file };
+			debug(`Updated existing mod ${modId} in profile ${profileId}`);
 		} else {
 			profile.mods.push({ mod_id: modId, version, file });
+			debug(`Added new mod ${modId} to profile ${profileId}`);
 		}
 
 		await store.set('profiles', profiles);
@@ -149,25 +224,32 @@ class ProfileService {
 	}
 
 	async addPlayTime(profileId: string, durationMs: number): Promise<void> {
-		const store = await this.getStore();
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
-		if (!profile) throw new Error(`Profile '${profileId}' not found`);
+		if (!profile) {
+			logError(`Profile not found: ${profileId}`);
+			throw new Error(`Profile '${profileId}' not found`);
+		}
 
 		profile.total_play_time = (profile.total_play_time ?? 0) + durationMs;
 
 		await store.set('profiles', profiles);
 		await store.save();
-		queryClient.invalidateQueries({ queryKey: ['profiles'] });
+		debug(`Added ${durationMs}ms play time to profile ${profileId}`);
 	}
 
 	async removeModFromProfile(profileId: string, modId: string): Promise<void> {
-		const store = await this.getStore();
+		info(`Removing mod ${modId} from profile ${profileId}`);
+		const store = await getStore();
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
-		if (!profile) throw new Error(`Profile '${profileId}' not found`);
+		if (!profile) {
+			logError(`Profile not found: ${profileId}`);
+			throw new Error(`Profile '${profileId}' not found`);
+		}
 
 		profile.mods = profile.mods.filter((m) => m.mod_id !== modId);
 		await store.set('profiles', profiles);
@@ -195,6 +277,7 @@ class ProfileService {
 	}
 
 	async deleteModFile(profilePath: string, fileName: string): Promise<void> {
+		info(`Deleting mod file: ${fileName}`);
 		const pluginsPath = await join(profilePath, 'BepInEx', 'plugins');
 		const filePath = await join(pluginsPath, fileName);
 		await remove(filePath, { recursive: true });
@@ -204,7 +287,10 @@ class ProfileService {
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
-		if (!profile) throw new Error(`Profile '${profileId}' not found`);
+		if (!profile) {
+			logError(`Profile not found: ${profileId}`);
+			throw new Error(`Profile '${profileId}' not found`);
+		}
 
 		const diskFiles = await this.getModFiles(profile.path);
 		const managedFiles = new Set(profile.mods.map((m) => m.file).filter(Boolean));
@@ -231,7 +317,10 @@ class ProfileService {
 		const profiles = await this.getProfiles();
 		const profile = profiles.find((p) => p.id === profileId);
 
-		if (!profile) throw new Error(`Profile '${profileId}' not found`);
+		if (!profile) {
+			logError(`Profile not found: ${profileId}`);
+			throw new Error(`Profile '${profileId}' not found`);
+		}
 
 		await this.deleteModFile(profile.path, mod.file);
 

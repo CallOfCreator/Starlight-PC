@@ -141,6 +141,17 @@
 		height: 100vh;
 		width: 100vw;
 	}
+
+	/* Changes the mouse icon when hovering buttons */
+	button,
+	[role='button'] {
+		cursor: pointer;
+	}
+
+	button:disabled,
+	[aria-disabled='true'] {
+		cursor: not-allowed;
+	}
 }
 
 /* Custom scrollbar styling using theme colors */

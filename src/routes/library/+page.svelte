@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { Library, Play, Ghost } from '@lucide/svelte';
+	import { Library, Play, Ghost, Plus } from '@lucide/svelte';
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import ProfileCard from '$lib/features/profiles/components/ProfileCard.svelte';
 	import CreateProfileDialog from '$lib/features/profiles/components/CreateProfileDialog.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import {
 		AlertDialog,
 		AlertDialogAction,
@@ -13,18 +15,21 @@
 		AlertDialogTitle
 	} from '$lib/components/ui/alert-dialog';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { launchService } from '$lib/features/profiles/launch-service';
-	import { profileService } from '$lib/features/profiles/profile-service';
+	import { profileMutations } from '$lib/features/profiles/mutations';
 	import type { Profile } from '$lib/features/profiles/schema';
-	import { showToastError, showToastSuccess } from '$lib/utils/toast';
+	import { showError, showSuccess } from '$lib/utils/toast';
 
 	const queryClient = useQueryClient();
 	const profilesQuery = createQuery(() => profileQueries.all());
+	const updateLastLaunched = createMutation(() => profileMutations.updateLastLaunched(queryClient));
+	const deleteProfile = createMutation(() => profileMutations.delete(queryClient));
 	const profiles = $derived((profilesQuery.data ?? []) as Profile[]);
 
 	let deleteDialogOpen = $state(false);
+	let createDialogOpen = $state(false);
 	let profileToDelete = $state<Profile | null>(null);
 	let isLaunchingVanilla = $state(false);
 
@@ -33,7 +38,7 @@
 		try {
 			await launchService.launchVanilla();
 		} catch (e) {
-			showToastError(e);
+			showError(e);
 		} finally {
 			isLaunchingVanilla = false;
 		}
@@ -50,11 +55,10 @@
 
 		try {
 			await launchService.launchProfile(profile);
-			queryClient.invalidateQueries({ queryKey: ['profiles'] });
-			queryClient.invalidateQueries({ queryKey: ['profiles', 'active'] });
+			await updateLastLaunched.mutateAsync(profile.id);
 		} catch (e) {
 			queryClient.setQueryData(['profiles'], previousProfiles);
-			showToastError(e);
+			showError(e);
 		}
 	}
 
@@ -75,16 +79,19 @@
 
 		const previousProfiles = queryClient.getQueryData<Profile[]>(['profiles']);
 
+		// Optimistic update
 		queryClient.setQueryData(['profiles'], (old = []) =>
 			(old as Profile[]).filter((p) => p.id !== profileId)
 		);
 
 		try {
-			await profileService.deleteProfile(profileId);
-			showToastSuccess(`Profile "${profileName}" deleted`);
+			await deleteProfile.mutateAsync(profileId);
+			// Also remove any cached unified-mods for this profile
+			queryClient.removeQueries({ queryKey: ['unified-mods', profileId] });
+			showSuccess(`Profile "${profileName}" deleted`);
 		} catch (e) {
 			queryClient.setQueryData(['profiles'], previousProfiles);
-			showToastError(e);
+			showError(e);
 		} finally {
 			profileToDelete = null;
 		}
@@ -97,20 +104,17 @@
 </script>
 
 <div class="px-10 py-8">
-	<div class="mb-6 flex items-center justify-between gap-3">
-		<div class="flex items-center gap-3">
-			<div
-				class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20"
-			>
-				<Library class="h-6 w-6 text-primary" />
-			</div>
-			<div class="space-y-0.5">
-				<h1 class="text-4xl font-black tracking-tight">Library</h1>
-				<p class="text-sm text-muted-foreground">Manage your profiles and launch the game.</p>
-			</div>
-		</div>
-		<CreateProfileDialog />
-	</div>
+	<PageHeader
+		title="Library"
+		description="Manage your profiles and launch the game."
+		icon={Library}
+	>
+		<Button onclick={() => (createDialogOpen = true)}>
+			<Plus class="mr-2 h-4 w-4" />
+			Create Profile
+		</Button>
+	</PageHeader>
+	<CreateProfileDialog bind:open={createDialogOpen} />
 
 	<div class="mb-6">
 		<h2 class="mb-3 text-lg font-semibold">Quick Actions</h2>
@@ -130,7 +134,11 @@
 					{/if}
 				</div>
 				<div class="flex min-w-0 flex-1 flex-col">
-					<div class="font-semibold">{isLaunchingVanilla ? 'Launching...' : 'Launch Vanilla'}</div>
+					<div class="flex items-center gap-2">
+						<div class="font-semibold">
+							{isLaunchingVanilla ? 'Launching...' : 'Launch Vanilla'}
+						</div>
+					</div>
 					<div class="truncate text-sm text-muted-foreground">Play without any mods</div>
 				</div>
 				{#if !isLaunchingVanilla}
@@ -165,7 +173,10 @@
 				<p class="mb-4 text-sm text-muted-foreground">
 					Create a profile to manage your modded installations.
 				</p>
-				<CreateProfileDialog />
+				<Button onclick={() => (createDialogOpen = true)}>
+					<Plus class="mr-2 h-4 w-4" />
+					Create Profile
+				</Button>
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

@@ -19,19 +19,10 @@
 	const sidebar = getSidebar();
 
 	let selectedPost = $state<Post | null>(null);
-	let displayedPost = $state<Post | null>(null);
 
 	function toggleNews(item: Post) {
-		if (selectedPost?.id === item.id) {
-			selectedPost = null;
-			sidebar.close();
-		} else {
-			selectedPost = item;
-			displayedPost = item;
-			sidebar.open(NewsDetailSidebar, () => {
-				displayedPost = null;
-			});
-		}
+		const opened = sidebar.open(NewsDetailSidebar, () => (selectedPost = null), `news-${item.id}`);
+		selectedPost = opened ? item : null;
 	}
 
 	function closeSidebar() {
@@ -41,8 +32,8 @@
 </script>
 
 {#snippet NewsDetailSidebar()}
-	{#if displayedPost}
-		<NewsDetail post={displayedPost} onclose={closeSidebar} />
+	{#if selectedPost}
+		<NewsDetail post={selectedPost} onclose={closeSidebar} />
 	{/if}
 {/snippet}
 
@@ -61,27 +52,23 @@
 			</div>
 		</div>
 
-		{#if newsQuery.isLoading}
-			<Carousel.Root opts={{ align: 'start' }} class="w-full">
-				<Carousel.Content class="-ml-4">
+		<Carousel.Root opts={{ align: 'start' }} class="w-full">
+			<Carousel.Content class="-ml-4">
+				{#if newsQuery.isLoading}
 					{#each { length: 6 }, i (i)}
 						<Carousel.Item class="pl-4 @lg:basis-1/2 @2xl:basis-1/3">
 							<NewsCardSkeleton />
 						</Carousel.Item>
 					{/each}
-				</Carousel.Content>
-				<Carousel.Previous class="-left-9" />
-				<Carousel.Next class="-right-9" />
-			</Carousel.Root>
-		{:else if newsQuery.isError}
-			<div class="mx-10 rounded-md border border-destructive/20 bg-destructive/10 p-4">
-				<p class="text-sm font-semibold text-destructive">Error loading posts</p>
-			</div>
-		{:else if newsQuery.isSuccess && newsQuery.data}
-			<Carousel.Root opts={{ align: 'start' }} class="w-full">
-				<Carousel.Content class="-ml-4">
+				{:else if newsQuery.isError}
+					<Carousel.Item class="basis-full pl-4">
+						<div class="rounded-md border border-destructive/20 bg-destructive/10 p-4">
+							<p class="text-sm font-semibold text-destructive">Error loading posts</p>
+						</div>
+					</Carousel.Item>
+				{:else if newsQuery.isSuccess && newsQuery.data}
 					{#each newsQuery.data as post (post.id)}
-						<Carousel.Item class="pl-4 @lg:basis-1/2 @2xl:basis-1/3">
+						<Carousel.Item class="pl-4 select-none @lg:basis-1/2 @2xl:basis-1/3">
 							<NewsCard
 								{post}
 								isSelected={selectedPost?.id === post.id}
@@ -89,11 +76,11 @@
 							/>
 						</Carousel.Item>
 					{/each}
-				</Carousel.Content>
-				<Carousel.Previous class="-left-9" />
-				<Carousel.Next class="-right-9" />
-			</Carousel.Root>
-		{/if}
+				{/if}
+			</Carousel.Content>
+			<Carousel.Previous class="-left-9" />
+			<Carousel.Next class="-right-9" />
+		</Carousel.Root>
 	</section>
 
 	<!-- Trending Mods Section -->
@@ -110,34 +97,30 @@
 			</div>
 		</div>
 
-		{#if trendingModsQuery.isLoading}
-			<Carousel.Root opts={{ align: 'start' }} class="w-full">
-				<Carousel.Content class="-ml-2">
+		<Carousel.Root opts={{ align: 'start' }} class="w-full">
+			<Carousel.Content class="-ml-2">
+				{#if trendingModsQuery.isLoading}
 					{#each { length: 6 }, i (i)}
 						<Carousel.Item class="basis-full pl-2 @4xl:basis-1/2 @7xl:basis-1/3">
 							<ModCardSkeleton />
 						</Carousel.Item>
 					{/each}
-				</Carousel.Content>
-				<Carousel.Previous class="-left-9" />
-				<Carousel.Next class="-right-9" />
-			</Carousel.Root>
-		{:else if trendingModsQuery.isError}
-			<div class="rounded-md border border-destructive/20 bg-destructive/10 p-4">
-				<p class="text-sm font-semibold text-destructive">Error loading mods</p>
-			</div>
-		{:else if trendingModsQuery.isSuccess && trendingModsQuery.data}
-			<Carousel.Root opts={{ align: 'start' }} class="w-full">
-				<Carousel.Content class="-ml-2">
+				{:else if trendingModsQuery.isError}
+					<Carousel.Item class="basis-full pl-2">
+						<div class="rounded-md border border-destructive/20 bg-destructive/10 p-4">
+							<p class="text-sm font-semibold text-destructive">Error loading mods</p>
+						</div>
+					</Carousel.Item>
+				{:else if trendingModsQuery.isSuccess && trendingModsQuery.data}
 					{#each trendingModsQuery.data as mod (mod.id)}
-						<Carousel.Item class="basis-full pl-2 @4xl:basis-1/2 @7xl:basis-1/3">
+						<Carousel.Item class="basis-full pl-2 select-none @4xl:basis-1/2 @7xl:basis-1/3">
 							<ModCard {mod} />
 						</Carousel.Item>
 					{/each}
-				</Carousel.Content>
-				<Carousel.Previous class="-left-9" />
-				<Carousel.Next class="-right-9" />
-			</Carousel.Root>
-		{/if}
+				{/if}
+			</Carousel.Content>
+			<Carousel.Previous class="-left-9" />
+			<Carousel.Next class="-right-9" />
+		</Carousel.Root>
 	</section>
 </div>

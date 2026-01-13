@@ -34,7 +34,7 @@ export const ModInfoResponse = type({
 export const ModDependency = type({
 	mod_id: 'string',
 	version_constraint: 'string',
-	type: 'string'
+	type: "'required' | 'optional' | 'conflict'"
 });
 
 export const ModVersionInfo = type({

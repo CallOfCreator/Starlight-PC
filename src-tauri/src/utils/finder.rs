@@ -1,14 +1,34 @@
-use log::info;
+use log::{debug, info, warn};
 use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "windows")]
-use winreg::{enums::*, RegKey};
+use winreg::{RegKey, enums::*};
 
 const AMONG_US_EXE: &str = "Among Us.exe";
+const EPIC_FOLDER: &str = "Among Us_Data/StreamingAssets/aa/EGS";
+const XBOX_FOLDER: &str = "Among Us_Data/StreamingAssets/aa/Win10";
 
 /// Checks if the directory exists and contains the Among Us executable.
 fn verify_among_us_directory(path: &Path) -> bool {
     path.is_dir() && path.join(AMONG_US_EXE).is_file()
+}
+
+/// Checks if the path is in the WindowsApps folder (Xbox/MS Store installation).
+/// These paths cannot be used for auto-detection since they require special launch handling.
+#[cfg(target_os = "windows")]
+fn is_windows_apps_path(path: &Path) -> bool {
+    path.to_string_lossy()
+        .to_lowercase()
+        .contains("windowsapps")
+}
+
+/// Checks if the directory contains Epic Games indicator (Among Us_Data\StreamingAssets\aa\EGS folder).
+fn is_epic_installation(path: &Path) -> bool {
+    path.join(EPIC_FOLDER).is_dir()
+}
+
+fn is_xbox_installation(path: &Path) -> bool {
+    path.join(XBOX_FOLDER).is_dir()
 }
 
 #[cfg(target_os = "windows")]
@@ -17,7 +37,8 @@ fn parse_registry_icon_value(raw_value: &str) -> Option<PathBuf> {
         .split(',')
         .next()?
         .trim()
-        .trim_matches(|c| c == '"' || c == '\'');
+        .trim_matches(|c| c == '"' || c == '\'')
+        .replace(';', "\\"); // Fix Epic Games' weird path separators
 
     if path.is_empty() {
         return None;
@@ -31,17 +52,25 @@ fn find_among_us_from_registry() -> Option<PathBuf> {
     let hkcr = RegKey::predef(HKEY_CLASSES_ROOT);
 
     for key_name in ["AmongUs", "amongus"] {
-        if let Ok(key) = hkcr.open_subkey(key_name) {
-            if let Ok(icon_key) = key.open_subkey("DefaultIcon") {
-                if let Ok(raw_value) = icon_key.get_value::<String, _>("") {
-                    if let Some(directory) = parse_registry_icon_value(&raw_value) {
-                        if verify_among_us_directory(&directory) {
-                            info!("Found Among Us via registry: {}", directory.display());
-                            return Some(directory);
-                        }
-                    }
-                }
+        let directory = hkcr
+            .open_subkey(key_name)
+            .ok()
+            .and_then(|key| key.open_subkey("DefaultIcon").ok())
+            .and_then(|icon_key| icon_key.get_value::<String, _>("").ok())
+            .and_then(|raw_value| parse_registry_icon_value(&raw_value))
+            .filter(|directory| verify_among_us_directory(directory));
+
+        if let Some(dir) = directory {
+            // Skip WindowsApps paths - Xbox installations require manual path selection
+            if is_windows_apps_path(&dir) {
+                info!(
+                    "Skipping WindowsApps path (Xbox installation): {}",
+                    dir.display()
+                );
+                continue;
             }
+            info!("Found Among Us via registry: {}", dir.display());
+            return Some(dir);
         }
     }
     None
@@ -87,4 +116,25 @@ pub fn get_among_us_paths() -> Vec<PathBuf> {
 
     info!("Among Us installation not detected");
     Vec::new()
+}
+
+/// Detects the game platform for a given path.
+pub fn detect_platform(path: &str) -> Result<String, String> {
+    let path = PathBuf::from(path);
+
+    if !verify_among_us_directory(&path) {
+        warn!("Invalid Among Us installation directory: {:?}", path);
+        return Err("Invalid Among Us installation directory".to_string());
+    }
+
+    let platform = if is_epic_installation(&path) {
+        "epic"
+    } else if is_xbox_installation(&path) {
+        "xbox"
+    } else {
+        "steam"
+    };
+
+    debug!("Detected platform '{}' for path: {:?}", platform, path);
+    Ok(platform.to_string())
 }

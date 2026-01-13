@@ -3,20 +3,19 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Plus } from '@lucide/svelte';
-	import { profileService } from '../profile-service';
-	import { useQueryClient } from '@tanstack/svelte-query';
+	import { profileMutations } from '../mutations';
+	import { createMutation, useQueryClient } from '@tanstack/svelte-query';
 	import type { Profile } from '../schema';
-	import { handleError } from '$lib/utils/error-handler';
 
 	const queryClient = useQueryClient();
+	const createProfile = createMutation(() => profileMutations.create(queryClient));
 
-	let open = $state(false);
-	let { dialogRef }: { dialogRef?: { open: () => void } } = $props();
+	let { open = $bindable(false) }: { open?: boolean } = $props();
 	let name = $state('');
-	let isCreating = $state(false);
 	let error = $state('');
 	let pollTimer: number | null = null;
+
+	const isCreating = $derived(createProfile.isPending);
 
 	async function waitForBepInEx(profileId: string) {
 		const checkInterval = 2000;
@@ -39,22 +38,15 @@
 		if (!name.trim()) return;
 
 		try {
-			isCreating = true;
-
 			const trimmed = name.trim();
+			const result = await createProfile.mutateAsync(trimmed);
 
-			const createdProfile = await profileService.createProfile(trimmed);
-
-			queryClient.setQueryData(['profiles'], (old: Profile[] = []) => [...old, createdProfile]);
-
-			waitForBepInEx(createdProfile.id);
+			waitForBepInEx(result.id);
 
 			name = '';
 			open = false;
 		} catch (e) {
-			error = handleError(e);
-		} finally {
-			isCreating = false;
+			error = e instanceof Error ? e.message : 'An unknown error occurred';
 		}
 	}
 
@@ -70,20 +62,14 @@
 		}
 	}
 
-	if (dialogRef) {
-		dialogRef.open = () => {
-			open = true;
+	$effect(() => {
+		return () => {
+			if (pollTimer) clearInterval(pollTimer);
 		};
-	}
+	});
 </script>
 
 <Dialog.Root bind:open {onOpenChange}>
-	<Dialog.Trigger>
-		<Button>
-			<Plus class="mr-2 h-4 w-4" />
-			Create Profile
-		</Button>
-	</Dialog.Trigger>
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Create New Profile</Dialog.Title>

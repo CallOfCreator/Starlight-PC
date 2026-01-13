@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
 	import Prose from '$lib/components/shared/Prose.svelte';
+	import SidebarHeader from '$lib/components/shared/SidebarHeader.svelte';
 	import { marked } from 'marked';
-	import { X } from '@jis3r/icons';
 	import { User, Calendar } from '@lucide/svelte';
 	import type { Post } from '$lib/features/news/schema';
 
@@ -12,18 +11,11 @@
 	}
 
 	let { post, onclose }: Props = $props();
-
 	const renderedContent = $derived(marked.parse(post.content));
 </script>
 
 <div class="flex h-full flex-col">
-	<div
-		class="sticky top-0 z-10 flex items-center justify-between border-b bg-muted/80 p-4 backdrop-blur-md"
-	>
-		<Button variant="ghost" size="icon" onclick={onclose}>
-			<X class="h-4 w-4" />
-		</Button>
-	</div>
+	<SidebarHeader {onclose} />
 
 	<div class="grow overflow-y-auto p-6">
 		<div class="mb-6 space-y-2">

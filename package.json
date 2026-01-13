@@ -1,7 +1,8 @@
 {
 	"name": "starlight",
 	"private": true,
-	"version": "0.0.4",
+	"version": "0.1.0",
+	"license": "GPL-3.0-only",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -27,6 +28,7 @@
 		"@tailwindcss/vite": "^4.1.13",
 		"@tauri-apps/cli": "^2.8.4",
 		"@types/node": "^24",
+		"@types/semver": "^7.7.1",
 		"bits-ui": "^2.14.4",
 		"clsx": "^2.1.1",
 		"embla-carousel-svelte": "^8.6.0",
@@ -51,18 +53,19 @@
 	"dependencies": {
 		"@tanstack/query-async-storage-persister": "^5.90.16",
 		"@tanstack/svelte-query": "^6.0.3",
-		"@tanstack/svelte-query-persist-client": "^6.0.14",
 		"@tauri-apps/api": "^2.9.0",
 		"@tauri-apps/plugin-dialog": "~2",
 		"@tauri-apps/plugin-fs": "~2",
 		"@tauri-apps/plugin-http": "~2",
+		"@tauri-apps/plugin-log": "^2.7.1",
 		"@tauri-apps/plugin-opener": "~2",
 		"@tauri-apps/plugin-os": "^2.3.2",
 		"@tauri-apps/plugin-store": "~2",
 		"@tauri-apps/plugin-updater": "~2",
+		"@tauri-apps/plugin-window-state": "~2",
 		"arktype": "^2.1.29",
 		"dompurify": "^3.3.0",
-		"jszip": "^3.10.1",
-		"marked": "^16.4.1"
+		"marked": "^16.4.1",
+		"semver": "^7.7.3"
 	}
 }
