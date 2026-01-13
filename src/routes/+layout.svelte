@@ -44,6 +44,6 @@
 	<AppShell>
 		{@render children()}
 	</AppShell>
+	<Toaster />
+	<AmongUsPathDialog bind:open={dialogOpen} {detectedPath} />
 </QueryClientProvider>
-<Toaster />
-<AmongUsPathDialog bind:open={dialogOpen} {detectedPath} />
