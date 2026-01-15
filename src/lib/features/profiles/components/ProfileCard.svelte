@@ -52,7 +52,7 @@
 		}
 	}
 
-	async function setupModsWatcher() {
+	async function setupModsWatcher(): Promise<(() => void) | undefined> {
 		if (!profile.bepinex_installed) return;
 
 		try {

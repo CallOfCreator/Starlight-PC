@@ -16,12 +16,13 @@
 	let name = $state('');
 	let error = $state('');
 	let unwatchFn: (() => void) | null = null;
+	let dialogMounted = true;
 
 	const isCreating = $derived(createProfile.isPending);
 
 	async function watchProfileDirectory(profileId: string, profilePath: string) {
 		const pluginsPath = await join(profilePath, 'BepInEx', 'plugins');
-		unwatchFn = await watchDirectory(
+		const cleanup = await watchDirectory(
 			pluginsPath,
 			() => {
 				queryClient.invalidateQueries({ queryKey: ['profiles'] });
@@ -38,6 +39,12 @@
 			},
 			{ recursive: true }
 		);
+
+		if (dialogMounted) {
+			unwatchFn = cleanup;
+		} else {
+			cleanup();
+		}
 	}
 
 	async function handleCreate() {
@@ -70,7 +77,9 @@
 	}
 
 	$effect(() => {
+		dialogMounted = true;
 		return () => {
+			dialogMounted = false;
 			if (unwatchFn) {
 				unwatchFn();
 				unwatchFn = null;

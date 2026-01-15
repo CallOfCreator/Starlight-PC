@@ -17,18 +17,18 @@ class FileWatcherManager {
 			return () => this.unwatchPath(path, callback);
 		}
 
-		const callbacks = new Set([callback]);
-
 		try {
 			const unwatch = await watch(
 				path,
 				() => {
 					info(`File change detected in: ${path}`);
-					callbacks.forEach((cb) => cb());
+					const entry = this.#watchers.get(path);
+					entry?.callbacks.forEach((cb) => cb());
 				},
 				{ recursive }
 			);
 
+			const callbacks = new Set([callback]);
 			this.#watchers.set(path, { unwatch, callbacks });
 			info(`File watcher started for: ${path}`);
 
