@@ -5,9 +5,11 @@
 	import { Toaster } from '$lib/components/ui/sonner';
 	import AppShell from '$lib/components/layout/AppShell.svelte';
 	import AmongUsPathDialog from '$lib/features/settings/AmongUsPathDialog.svelte';
+	import UpdateNotification from '$lib/components/shared/UpdateNotification.svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import { registerProfilesInvalidateCallback } from '$lib/features/profiles/game-state.svelte';
+	import { updateState } from '$lib/features/updates/update-state.svelte';
 	import { onMount } from 'svelte';
 	import { info, warn } from '@tauri-apps/plugin-log';
 
@@ -23,6 +25,9 @@
 
 	onMount(async () => {
 		info('Starlight frontend initialized');
+
+		// Check for updates (non-blocking)
+		updateState.check();
 
 		const settings = await settingsService.getSettings();
 		if (!settings.among_us_path) {
@@ -44,6 +49,7 @@
 	<AppShell>
 		{@render children()}
 	</AppShell>
+	<UpdateNotification />
 	<Toaster />
 	<AmongUsPathDialog bind:open={dialogOpen} {detectedPath} />
 </QueryClientProvider>
