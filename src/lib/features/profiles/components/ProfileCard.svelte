@@ -30,7 +30,6 @@
 	const queryClient = useQueryClient();
 	const sidebar = getSidebar();
 	let selectedModId = $state<string | null>(null);
-	let unwatchFn: (() => void) | null = null;
 
 	async function setupModsWatcher() {
 		if (!profile.bepinex_installed) return;
@@ -39,13 +38,15 @@
 			const pluginsPath = await join(profile.path, 'BepInEx', 'plugins');
 			info(`Setting up mods watcher for: ${pluginsPath}`);
 
-			unwatchFn = await watchDirectory(pluginsPath, () => {
+			// Return the result of watchDirectory (which is the cleanup function)
+			return await watchDirectory(pluginsPath, () => {
 				queryClient.invalidateQueries({ queryKey: ['disk-files', profile.path] });
 				queryClient.invalidateQueries({ queryKey: ['profiles'] });
 				info(`Invalidated queries for profile: ${profile.id}`);
 			});
 		} catch (err) {
 			info(`Could not setup mods watcher: ${err}`);
+			return undefined;
 		}
 	}
 
@@ -164,27 +165,30 @@
 
 	// Setup file watcher for mods directory
 	$effect(() => {
-		if (profile.bepinex_installed) {
-			let mounted = true;
+		if (!profile.bepinex_installed) return;
 
-			const effectCleanup = async () => {
-				const cleanup = await setupModsWatcher();
-				if (mounted) {
-					unwatchFn = cleanup;
-				} else if (cleanup) {
-					cleanup();
-				}
-			};
-			effectCleanup();
+		let mounted = true;
+		let localUnwatch: (() => void) | undefined;
 
-			return () => {
-				mounted = false;
-				if (unwatchFn) {
-					unwatchFn();
-					unwatchFn = null;
-				}
-			};
-		}
+		const startWatcher = async () => {
+			const cleanup = await setupModsWatcher();
+			if (!mounted) {
+				// If the component unmounted while we were awaiting,
+				// kill the watcher immediately
+				cleanup?.();
+			} else {
+				localUnwatch = cleanup;
+			}
+		};
+
+		startWatcher();
+
+		return () => {
+			mounted = false;
+			if (localUnwatch) {
+				localUnwatch();
+			}
+		};
 	});
 </script>
 
