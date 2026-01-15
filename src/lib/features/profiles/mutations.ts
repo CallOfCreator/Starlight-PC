@@ -57,6 +57,13 @@ export const profileMutations = {
 		}
 	}),
 
+	cleanupMissingMods: (queryClient: QueryClient) => ({
+		mutationFn: (profileId: string) => profileService.cleanupMissingMods(profileId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['profiles'] });
+		}
+	}),
+
 	updatePlayTime: (queryClient: QueryClient) => ({
 		mutationFn: (args: { profileId: string; durationMs: number }) =>
 			profileService.addPlayTime(args.profileId, args.durationMs),

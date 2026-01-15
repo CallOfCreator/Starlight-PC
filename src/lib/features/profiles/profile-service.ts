@@ -19,25 +19,6 @@ class ProfileService {
 		const result = ProfilesArray(raw ?? []);
 		const profiles = result instanceof type.errors ? [] : result;
 
-		let needsSave = false;
-
-		for (const profile of profiles) {
-			const diskFiles = await this.getModFiles(profile.path);
-			const diskFilesSet = new Set(diskFiles);
-			const missingMods = profile.mods.filter((m) => m.file && !diskFilesSet.has(m.file));
-
-			if (missingMods.length > 0) {
-				info(`Cleaning up ${missingMods.length} missing managed mods from profile ${profile.id}`);
-				profile.mods = profile.mods.filter((m) => m.file && diskFilesSet.has(m.file));
-				needsSave = true;
-			}
-		}
-
-		if (needsSave) {
-			await store.set('profiles', profiles);
-			await store.save();
-		}
-
 		return profiles.sort((a, b) => {
 			const aLaunched = a.last_launched_at ?? 0;
 			const bLaunched = b.last_launched_at ?? 0;
@@ -355,6 +336,30 @@ class ProfileService {
 				await store.save();
 				debug(`Removed missing mods from profile ${profileId}`);
 			}
+		}
+	}
+
+	async cleanupMissingMods(profileId: string): Promise<void> {
+		const profiles = await this.getProfiles();
+		const profile = profiles.find((p) => p.id === profileId);
+
+		if (!profile) {
+			logError(`Profile not found: ${profileId}`);
+			throw new Error(`Profile '${profileId}' not found`);
+		}
+
+		const diskFiles = await this.getModFiles(profile.path);
+		const diskFilesSet = new Set(diskFiles);
+
+		const missingMods = profile.mods.filter((m) => m.file && !diskFilesSet.has(m.file));
+		if (missingMods.length > 0) {
+			info(`Cleaning up ${missingMods.length} missing managed mods from profile ${profileId}`);
+			profile.mods = profile.mods.filter((m) => m.file && diskFilesSet.has(m.file));
+
+			const store = await getStore();
+			await store.set('profiles', profiles);
+			await store.save();
+			debug(`Removed missing mods from profile ${profileId}`);
 		}
 	}
 

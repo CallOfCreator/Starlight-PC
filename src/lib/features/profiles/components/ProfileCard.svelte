@@ -31,6 +31,27 @@
 	const sidebar = getSidebar();
 	let selectedModId = $state<string | null>(null);
 
+	const deleteMod = createMutation(() => profileMutations.deleteUnifiedMod(queryClient));
+	const cleanupMods = createMutation(() => profileMutations.cleanupMissingMods(queryClient));
+	const retryBepInExInstall = createMutation(() =>
+		profileMutations.retryBepInExInstall(queryClient)
+	);
+
+	let unwatchFn: (() => void) | null = null;
+
+	async function handleRemoveMod(mod: { id: string; source: 'managed' | 'custom' }) {
+		try {
+			const unifiedMod = unifiedMods().find((m) =>
+				m.source === 'managed' ? m.mod_id === mod.id : m.file === mod.id
+			);
+			if (unifiedMod) {
+				await deleteMod.mutateAsync({ profileId: profile.id, mod: unifiedMod });
+			}
+		} catch (error) {
+			showError(error, 'Remove mod');
+		}
+	}
+
 	async function setupModsWatcher() {
 		if (!profile.bepinex_installed) return;
 
@@ -38,43 +59,20 @@
 			const pluginsPath = await join(profile.path, 'BepInEx', 'plugins');
 			info(`Setting up mods watcher for: ${pluginsPath}`);
 
-			// Return the result of watchDirectory (which is the cleanup function)
-			return await watchDirectory(pluginsPath, () => {
+			return await watchDirectory(pluginsPath, async () => {
 				queryClient.invalidateQueries({ queryKey: ['disk-files', profile.path] });
-				queryClient.invalidateQueries({ queryKey: ['profiles'] });
-				info(`Invalidated queries for profile: ${profile.id}`);
+				try {
+					await cleanupMods.mutateAsync(profile.id);
+					info(`Cleaned up mods for profile: ${profile.id}`);
+				} catch (err) {
+					info(`Failed to cleanup mods: ${err}`);
+				}
 			});
 		} catch (err) {
 			info(`Could not setup mods watcher: ${err}`);
 			return undefined;
 		}
 	}
-
-	// Queries
-	const diskFilesQuery = createQuery(() => profileQueries.diskFiles(profile.path));
-
-	// Derived unified mods using profiles + disk files
-	const unifiedMods = $derived(() => {
-		const diskFiles = diskFilesQuery.data ?? [];
-		const managedFiles = new Set(profile.mods.map((m) => m.file).filter(Boolean));
-
-		const unified: UnifiedMod[] = profile.mods
-			.filter((m) => m.file && diskFiles.includes(m.file))
-			.map((mod) => ({
-				source: 'managed' as const,
-				mod_id: mod.mod_id,
-				version: mod.version,
-				file: mod.file!
-			}));
-
-		for (const file of diskFiles) {
-			if (!managedFiles.has(file)) {
-				unified.push({ source: 'custom' as const, file });
-			}
-		}
-
-		return unified;
-	});
 
 	function handleModClick(modId: string) {
 		const contentId = `profile-${profile.id}-mod-${modId}`;
@@ -87,11 +85,6 @@
 		sidebar.close();
 	}
 
-	const deleteMod = createMutation(() => profileMutations.deleteUnifiedMod(queryClient));
-	const retryBepInExInstall = createMutation(() =>
-		profileMutations.retryBepInExInstall(queryClient)
-	);
-
 	let showAllMods = $state(false);
 
 	async function handleOpenFolder() {
@@ -100,19 +93,6 @@
 			await revealItemInDir(fullPath);
 		} catch (error) {
 			showError(error, 'Open folder');
-		}
-	}
-
-	async function handleRemoveMod(mod: { id: string; source: 'managed' | 'custom' }) {
-		try {
-			const unifiedMod = unifiedMods().find((m) =>
-				m.source === 'managed' ? m.mod_id === mod.id : m.file === mod.id
-			);
-			if (unifiedMod) {
-				await deleteMod.mutateAsync({ profileId: profile.id, mod: unifiedMod });
-			}
-		} catch (error) {
-			showError(error, 'Remove mod');
 		}
 	}
 
@@ -148,6 +128,30 @@
 		)
 	);
 
+	const diskFilesQuery = createQuery(() => profileQueries.diskFiles(profile.path));
+
+	const unifiedMods = $derived(() => {
+		const diskFiles = diskFilesQuery.data ?? [];
+		const managedFiles = new Set(profile.mods.map((m) => m.file).filter(Boolean));
+
+		const unified: UnifiedMod[] = profile.mods
+			.filter((m) => m.file && diskFiles.includes(m.file))
+			.map((mod) => ({
+				source: 'managed' as const,
+				mod_id: mod.mod_id,
+				version: mod.version,
+				file: mod.file!
+			}));
+
+		for (const file of diskFiles) {
+			if (!managedFiles.has(file)) {
+				unified.push({ source: 'custom' as const, file });
+			}
+		}
+
+		return unified;
+	});
+
 	const allMods = $derived(() => {
 		const unified = unifiedMods();
 		return unified.map((mod) => {
@@ -159,36 +163,34 @@
 		});
 	});
 
-	// Mods list display helpers
 	const displayedMods = $derived(() => (showAllMods ? allMods() : allMods().slice(0, 3)));
 	const hiddenModCount = $derived(() => allMods().length - 3);
 
+	const modCount = $derived(unifiedMods().length);
+
 	// Setup file watcher for mods directory
 	$effect(() => {
-		if (!profile.bepinex_installed) return;
+		if (profile.bepinex_installed) {
+			let mounted = true;
 
-		let mounted = true;
-		let localUnwatch: (() => void) | undefined;
+			const effectCleanup = async () => {
+				const cleanup = await setupModsWatcher();
+				if (mounted && cleanup) {
+					unwatchFn = cleanup;
+				} else if (cleanup) {
+					cleanup();
+				}
+			};
+			effectCleanup();
 
-		const startWatcher = async () => {
-			const cleanup = await setupModsWatcher();
-			if (!mounted) {
-				// If the component unmounted while we were awaiting,
-				// kill the watcher immediately
-				cleanup?.();
-			} else {
-				localUnwatch = cleanup;
-			}
-		};
-
-		startWatcher();
-
-		return () => {
-			mounted = false;
-			if (localUnwatch) {
-				localUnwatch();
-			}
-		};
+			return () => {
+				mounted = false;
+				if (unwatchFn) {
+					unwatchFn();
+					unwatchFn = null;
+				}
+			};
+		}
 	});
 </script>
 
@@ -233,7 +235,7 @@
 				<Card.Description class="flex flex-wrap items-center gap-x-3 gap-y-1">
 					<span class="inline-flex items-center gap-1.5">
 						<Package class="size-3.5" />
-						{allMods().length} mod{allMods().length !== 1 ? 's' : ''}
+						{modCount} mod{modCount !== 1 ? 's' : ''}
 					</span>
 					<span class="inline-flex items-center gap-1.5">
 						<CalendarDays size={14} />

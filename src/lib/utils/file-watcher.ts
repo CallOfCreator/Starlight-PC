@@ -2,53 +2,50 @@ import { watch } from '@tauri-apps/plugin-fs';
 import type { UnwatchFn } from '@tauri-apps/plugin-fs';
 import { info, error as logError } from '@tauri-apps/plugin-log';
 
-type WatchCallback = () => void;
+type WatchCallback = () => void | Promise<void>;
 
 class FileWatcherManager {
-	#watchers = new Map<string, { unwatch: UnwatchFn; callback: WatchCallback; count: number }>();
+	#watchers = new Map<string, { unwatch: UnwatchFn; callbacks: Set<WatchCallback> }>();
 
 	async watchPath(path: string, callback: WatchCallback, recursive = true): Promise<UnwatchFn> {
 		info(`Setting up file watcher for: ${path}`);
 
 		const existing = this.#watchers.get(path);
 		if (existing) {
-			const originalCallback = existing.callback;
-			existing.callback = () => {
-				originalCallback();
-				callback();
-			};
-			existing.count++;
-			info(`Reusing existing watcher for: ${path} (count: ${existing.count})`);
-			return () => this.unwatchPath(path);
+			existing.callbacks.add(callback);
+			info(`Reusing existing watcher for: ${path} (callback count: ${existing.callbacks.size})`);
+			return () => this.unwatchPath(path, callback);
 		}
+
+		const callbacks = new Set([callback]);
 
 		try {
 			const unwatch = await watch(
 				path,
 				() => {
 					info(`File change detected in: ${path}`);
-					callback();
+					callbacks.forEach((cb) => cb());
 				},
 				{ recursive }
 			);
 
-			this.#watchers.set(path, { unwatch, callback, count: 1 });
+			this.#watchers.set(path, { unwatch, callbacks });
 			info(`File watcher started for: ${path}`);
 
-			return () => this.unwatchPath(path);
+			return () => this.unwatchPath(path, callback);
 		} catch (err) {
 			logError(`Failed to setup file watcher for ${path}: ${err}`);
 			throw err;
 		}
 	}
 
-	private unwatchPath(path: string): void {
+	private unwatchPath(path: string, callback: WatchCallback): void {
 		const entry = this.#watchers.get(path);
 		if (!entry) return;
 
-		entry.count--;
+		entry.callbacks.delete(callback);
 
-		if (entry.count <= 0) {
+		if (entry.callbacks.size === 0) {
 			entry.unwatch();
 			this.#watchers.delete(path);
 			info(`Stopped file watcher for: ${path}`);
