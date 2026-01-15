@@ -2,7 +2,6 @@ mod commands;
 mod utils;
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_log::{Target, TargetKind};
-use tauri_plugin_updater::UpdaterExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -32,13 +31,14 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            let mut win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+            let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("Starlight")
                 .inner_size(800.0, 600.0)
                 // Allow the window to be resized even without decorations
@@ -47,25 +47,18 @@ pub fn run() {
 
             // macOS: Use overlay to show native buttons over custom titlebar
             #[cfg(target_os = "macos")]
-            {
+            let win_builder = {
                 use tauri::TitleBarStyle;
-                win_builder = win_builder
+                win_builder
                     .title_bar_style(TitleBarStyle::Overlay)
-                    .title("");
-            }
+                    .title("")
+            };
 
             // Windows/Linux: Hide native bar to use our custom one
             #[cfg(not(target_os = "macos"))]
-            {
-                win_builder = win_builder.decorations(false);
-            }
+            let win_builder = win_builder.decorations(false);
 
             let _window = win_builder.build().unwrap();
-
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                update(handle).await.unwrap();
-            });
 
             log::info!("Starlight started");
 
@@ -94,32 +87,4 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
-    log::info!("Checking for updates...");
-    if let Some(update) = app.updater()?.check().await? {
-        log::info!("Update available, downloading...");
-        let mut downloaded = 0;
-
-        // alternatively we could also call update.download() and update.install() separately
-        update
-            .download_and_install(
-                |chunk_length, content_length| {
-                    downloaded += chunk_length;
-                    log::debug!("Downloaded {downloaded} from {content_length:?}");
-                },
-                || {
-                    log::info!("Download finished");
-                },
-            )
-            .await?;
-
-        log::info!("Update installed, restarting application");
-        app.restart();
-    } else {
-        log::info!("No updates available");
-    }
-
-    Ok(())
 }

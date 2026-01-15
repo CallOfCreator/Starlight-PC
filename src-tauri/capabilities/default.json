@@ -57,8 +57,9 @@
 				}
 			]
 		},
-		"opener:default",
+    "opener:default",
 		"updater:default",
-		"dialog:default"
+		"dialog:default",
+		"process:default"
 	]
 }
