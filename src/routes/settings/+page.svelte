@@ -207,9 +207,11 @@
 
 	// Clear xbox_app_id when path/platform changes
 	watch(
-		[() => localPath, () => localPlatform],
-		() => {
-			if (!skipFirstSave && settings?.xbox_app_id) {
+		[() => debouncedPath.current, () => localPlatform],
+		([newPath, newPlatform], [oldPath, oldPlatform]) => {
+			if (skipFirstSave || !settings?.xbox_app_id) return;
+
+			if (newPath !== oldPath || newPlatform !== oldPlatform) {
 				updateMutation.mutateAsync({ xbox_app_id: undefined });
 			}
 		},
