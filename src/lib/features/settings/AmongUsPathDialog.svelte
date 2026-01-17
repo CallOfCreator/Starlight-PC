@@ -8,6 +8,7 @@
 	import { createMutation, useQueryClient } from '@tanstack/svelte-query';
 	import { settingsMutations } from './mutations';
 	import { settingsService } from './settings-service';
+	import { watch } from 'runed';
 
 	let {
 		detectedPath = '',
@@ -23,11 +24,14 @@
 	let selectedPath = $state('');
 	let error = $state('');
 
-	$effect(() => {
-		if (open && detectedPath) {
-			selectedPath = detectedPath;
+	watch(
+		() => open,
+		(isOpen) => {
+			if (isOpen && detectedPath) {
+				selectedPath = detectedPath;
+			}
 		}
-	});
+	);
 
 	async function handleAutoDetect() {
 		try {

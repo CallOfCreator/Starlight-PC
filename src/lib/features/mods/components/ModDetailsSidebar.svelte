@@ -24,6 +24,7 @@
 	import { profileMutations } from '$lib/features/profiles/mutations';
 	import { showError, showSuccess } from '$lib/utils/toast';
 	import type { UnifiedMod, Profile } from '$lib/features/profiles/schema';
+	import { watch } from 'runed';
 
 	interface Props {
 		modId: string;
@@ -138,25 +139,26 @@
 	// ============ EFFECTS ============
 
 	// Set default version when versions load
-	$effect(() => {
-		if (versions.length > 0 && !selectedVersion) {
-			const latest = [...versions].sort((a, b) => b.created_at - a.created_at)[0];
-			selectedVersion = latest.version;
+	watch(
+		() => versions,
+		(versions) => {
+			if (versions.length > 0 && !selectedVersion) {
+				const latest = [...versions].sort((a, b) => b.created_at - a.created_at)[0];
+				selectedVersion = latest.version;
+			}
 		}
-	});
+	);
 
 	// Update selected version to match installed version when profile context is provided initially
-	$effect(() => {
-		if (
-			unifiedMod &&
-			unifiedMod.source === 'managed' &&
-			unifiedMod.version &&
-			!hasSetProfileVersion
-		) {
-			selectedVersion = unifiedMod.version;
-			hasSetProfileVersion = true;
+	watch(
+		() => unifiedMod,
+		(mod) => {
+			if (mod && mod.source === 'managed' && mod.version && !hasSetProfileVersion) {
+				selectedVersion = mod.version;
+				hasSetProfileVersion = true;
+			}
 		}
-	});
+	);
 
 	// ============ HANDLERS ============
 

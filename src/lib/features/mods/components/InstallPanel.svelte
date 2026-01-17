@@ -17,6 +17,7 @@
 	import type { Profile } from '$lib/features/profiles/schema';
 	import { onDestroy } from 'svelte';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
+	import { watch } from 'runed';
 
 	interface Props {
 		modId: string;
@@ -67,25 +68,31 @@
 			.filter((d) => installedDepsInProfile.has(d.mod_id))
 	);
 
-	// ============ EFFECTS ============
+	// ============ WATCHES ============
 
 	// Set default profile when profiles load
-	$effect(() => {
-		if (profiles.length > 0 && !selectedProfileId) {
-			const mostRecent = [...profiles].sort((a, b) => b.created_at - a.created_at)[0];
-			selectedProfileId = mostRecent.id;
+	watch(
+		() => profiles,
+		(currentProfiles) => {
+			if (currentProfiles.length > 0 && !selectedProfileId) {
+				const mostRecent = [...currentProfiles].sort((a, b) => b.created_at - a.created_at)[0];
+				selectedProfileId = mostRecent.id;
+			}
 		}
-	});
+	);
 
 	// Initialize selected dependencies when resolved deps change
-	$effect(() => {
-		if (resolvedDeps.length > 0 && !hasInitializedDeps) {
-			selectedDependencies = new Set(
-				resolvedDeps.filter((d) => d.type !== 'conflict').map((d) => d.mod_id)
-			);
-			hasInitializedDeps = true;
+	watch(
+		() => resolvedDeps,
+		(currentDeps) => {
+			if (currentDeps.length > 0 && !hasInitializedDeps) {
+				selectedDependencies = new Set(
+					currentDeps.filter((d) => d.type !== 'conflict').map((d) => d.mod_id)
+				);
+				hasInitializedDeps = true;
+			}
 		}
-	});
+	);
 
 	// ============ MUTATIONS ============
 
