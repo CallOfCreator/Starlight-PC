@@ -15,6 +15,7 @@
 	import { ExternalLink, LoaderCircle } from '@lucide/svelte';
 	import { LogOut, ChevronDown, ChevronUp } from '@jis3r/icons';
 	import { onDestroy } from 'svelte';
+	import { watch } from 'runed';
 
 	interface Props {
 		open?: boolean;
@@ -31,19 +32,22 @@
 
 	let unsubscribe: (() => void) | null = null;
 
-	$effect(() => {
-		if (open) {
-			epicService.isLoggedIn().then((v) => (isLoggedIn = v));
-			unsubscribe = epicService.subscribeToLoginEvents({
-				onStarted: () => (isWebviewOpen = true),
-				onSuccess: () => handleSuccess(),
-				onError: (e) => handleError(e),
-				onCancelled: () => (isWebviewOpen = false)
-			});
-		} else {
-			reset();
+	watch(
+		() => open,
+		(isOpen) => {
+			if (isOpen) {
+				epicService.isLoggedIn().then((v) => (isLoggedIn = v));
+				unsubscribe = epicService.subscribeToLoginEvents({
+					onStarted: () => (isWebviewOpen = true),
+					onSuccess: () => handleSuccess(),
+					onError: (e) => handleError(e),
+					onCancelled: () => (isWebviewOpen = false)
+				});
+			} else {
+				reset();
+			}
 		}
-	});
+	);
 
 	onDestroy(() => unsubscribe?.());
 

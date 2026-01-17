@@ -9,13 +9,14 @@
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { ArrowUpDown, X } from '@lucide/svelte';
 	import { Search, Compass, ChevronLeft, ChevronRight } from '@jis3r/icons';
+	import { Debounced, watch } from 'runed';
 
 	type SortKey = 'trending' | 'latest';
 	const ITEMS_PER_PAGE = 12;
 
 	let page = $state(0);
 	let searchInput = $state('');
-	let debouncedSearch = $state('');
+	const debouncedSearch = new Debounced(() => searchInput, 250);
 	let sortBy = $state<SortKey>('trending');
 
 	const sortOptions: { value: SortKey; label: string }[] = [
@@ -23,23 +24,23 @@
 		{ value: 'latest', label: 'Latest' }
 	];
 
-	$effect(() => {
-		const value = searchInput;
-		const timer = setTimeout(() => {
-			debouncedSearch = value;
-			page = 0; // Reset pagination when search term actually updates
-		}, 250);
-		return () => clearTimeout(timer);
-	});
+	// Reset pagination when debounced search changes
+	watch(
+		() => debouncedSearch.current,
+		() => {
+			page = 0;
+		},
+		{ lazy: true }
+	);
 
 	// Queries
 	const totalCountQuery = createQuery(() => modQueries.total());
 	const modsQuery = createQuery(() => ({
-		...modQueries.explore(debouncedSearch, ITEMS_PER_PAGE, page * ITEMS_PER_PAGE, sortBy),
+		...modQueries.explore(debouncedSearch.current, ITEMS_PER_PAGE, page * ITEMS_PER_PAGE, sortBy),
 		placeholderData: keepPreviousData
 	}));
 
-	const isSearching = $derived(debouncedSearch.trim().length > 0);
+	const isSearching = $derived(debouncedSearch.current.trim().length > 0);
 	const totalMods = $derived(totalCountQuery.data ?? 0);
 
 	const totalPages = $derived(isSearching ? null : Math.ceil(totalMods / ITEMS_PER_PAGE));
