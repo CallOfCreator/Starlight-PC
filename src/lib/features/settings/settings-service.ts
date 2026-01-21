@@ -7,7 +7,7 @@ import { Settings, type AppSettings } from './schema';
 
 const DEFAULT_SETTINGS: AppSettings = {
 	bepinex_url:
-		'https://builds.bepinex.dev/projects/bepinex_be/738/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.738%2Baf0cba7.zip',
+		'https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.752%2Bdd0655f.zip',
 	among_us_path: '',
 	close_on_launch: false,
 	game_platform: 'steam',

@@ -49,14 +49,7 @@
 				}
 			]
 		},
-		{
-			"identifier": "http:default",
-			"allow": [
-				{
-					"url": "https://builds.bepinex.dev/*"
-				}
-			]
-		},
+		"http:default",
     "opener:default",
 		"updater:default",
 		"dialog:default",
