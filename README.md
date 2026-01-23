@@ -1,5 +1,5 @@
 # Starlight PC
-
+![Downloads](https://img.shields.io/github/downloads/All-Of-Us-Mods/Starlight-PC/total?label=Downloads)
 ## Development
 
 ```bash
