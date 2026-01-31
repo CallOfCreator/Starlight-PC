@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-	import { join } from '@tauri-apps/api/path';
-	import { revealItemInDir } from '@tauri-apps/plugin-opener';
+	// (remove) import { page } from '$app/stores';
 
 	import ProfilesModCard from '$lib/features/mods/components/ProfilesModCard.svelte';
 	import { modQueries } from '$lib/features/mods/queries';
