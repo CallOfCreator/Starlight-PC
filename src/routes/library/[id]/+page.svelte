@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	// (remove) import { page } from '$app/stores';
+	import { page } from '$app/state';
+	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 
 	import ProfilesModCard from '$lib/features/mods/components/ProfilesModCard.svelte';
 	import { modQueries } from '$lib/features/mods/queries';
@@ -43,10 +43,12 @@
 		ArrowLeft,
 		Package
 	} from '@lucide/svelte';
+	import { join } from '@tauri-apps/api/path';
+	import { revealItemInDir } from '@tauri-apps/plugin-opener';
 
 	const queryClient = useQueryClient();
 
-	const profileId = $derived($page.params.id ?? '');
+	const profileId = $derived(page.params.id ?? '');
 
 	const profilesQuery = createQuery(() => profileQueries.all());
 	const unifiedModsQuery = createQuery(() => ({
