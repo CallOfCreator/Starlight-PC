@@ -144,7 +144,10 @@
 							variant="ghost"
 							size="icon"
 							class="size-6"
-							onclick={handleRetryInstall}
+							onclick={(e) => {
+								e.stopPropagation();
+								handleRetryInstall();
+							}}
 							title="Retry installation"
 						>
 							<RotateCcw class="size-3" />
@@ -179,7 +182,14 @@
 
 			<!-- Actions -->
 			<div class="flex items-center gap-2 @md:shrink-0">
-				<Button size="sm" onclick={() => onlaunch?.()} disabled={isDisabled}>
+				<Button
+					size="sm"
+					onclick={(e) => {
+						e.stopPropagation();
+						onlaunch?.();
+					}}
+					disabled={isDisabled}
+				>
 					<Play class="size-4 fill-current" />
 					<span>Launch</span>
 				</Button>

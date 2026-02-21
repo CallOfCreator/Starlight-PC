@@ -25,8 +25,7 @@
 		sidebar.open(sidebarContent, undefined, contentId);
 	}
 
-	function handleDelete(e: MouseEvent) {
-		e.stopPropagation();
+	function handleDelete() {
 		ondelete?.();
 	}
 </script>
@@ -36,14 +35,14 @@
 {/snippet}
 
 <Card.Root
-	class="overflow-hidden p-0 transition-all hover:bg-accent/50 {isSelected
+	class="relative overflow-hidden p-0 transition-all hover:bg-accent/50 {isSelected
 		? 'border-primary ring-1 ring-primary'
 		: 'hover:border-primary/50'}"
 >
 	<button
 		type="button"
 		onclick={openModDetails}
-		class="relative flex w-full cursor-pointer gap-3 p-3 text-left"
+		class="flex w-full cursor-pointer gap-3 p-3 text-left"
 	>
 		<div
 			class="flex h-16 w-16 flex-none items-center justify-center overflow-hidden rounded-lg bg-muted"
@@ -69,14 +68,14 @@
 				{mod.description}
 			</p>
 		</div>
-
-		<Button
-			size="sm"
-			variant="destructive"
-			class="absolute top-3 right-3 flex-none"
-			onclick={handleDelete}
-		>
-			<Trash class="size-4" />
-		</Button>
 	</button>
+
+	<Button
+		size="sm"
+		variant="destructive"
+		class="absolute top-3 right-3 flex-none"
+		onclick={handleDelete}
+	>
+		<Trash class="size-4" />
+	</Button>
 </Card.Root>
