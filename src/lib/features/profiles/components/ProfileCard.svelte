@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -196,9 +197,10 @@
 
 <div class="@container">
 	<Card.Root
-		class="transition-all hover:bg-accent/50 {isRunning
+		class="cursor-pointer transition-all hover:bg-accent/50 {isRunning
 			? 'bg-green-500/5 ring-2 ring-green-500/50'
-			: ''}"
+			: 'hover:border-primary/50'}"
+		onclick={() => goto(`/library/${profile.id}`)}
 	>
 		<Card.Header class="gap-4 @md:flex-row @md:items-start @md:justify-between">
 			<div class="min-w-0 flex-1 space-y-1.5">
@@ -215,7 +217,10 @@
 							variant="ghost"
 							size="icon"
 							class="size-6"
-							onclick={handleRetryInstall}
+							onclick={(e) => {
+								e.stopPropagation();
+								handleRetryInstall();
+							}}
 							title="Retry installation"
 						>
 							<RotateCcw class="size-3" />
@@ -250,7 +255,14 @@
 
 			<!-- Actions -->
 			<div class="flex items-center gap-2 @md:shrink-0">
-				<Button size="sm" onclick={() => onlaunch?.()} disabled={isDisabled}>
+				<Button
+					size="sm"
+					onclick={(e) => {
+						e.stopPropagation();
+						onlaunch?.();
+					}}
+					disabled={isDisabled}
+				>
 					<Play class="size-4 fill-current" />
 					<span>Launch</span>
 				</Button>
