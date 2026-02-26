@@ -270,14 +270,14 @@
 		<Package class="h-16 w-16 text-muted-foreground/30" />
 		<h2 class="text-xl font-bold">Profile not found</h2>
 		<p class="text-muted-foreground">This profile may have been deleted.</p>
-		<Button onclick={() => goto('/library')}>
+		<Button href="/library">
 			<ArrowLeft class="mr-2 h-4 w-4" />
 			Back to Library
 		</Button>
 	</div>
 {:else}
 	<div class="px-10 py-8">
-		<Button variant="ghost" size="sm" class="mb-4" onclick={() => goto('/library')}>
+		<Button variant="ghost" size="sm" class="mb-4" href="/library">
 			<ArrowLeft class="mr-2 h-4 w-4" />
 			Back to Library
 		</Button>

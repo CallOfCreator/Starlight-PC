@@ -8,9 +8,6 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		prerender: {
-			handleUnseenRoutes: 'ignore'
-		},
 		adapter: adapter({
 			fallback: 'index.html'
 		})
