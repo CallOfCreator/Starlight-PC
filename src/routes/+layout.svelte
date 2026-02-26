@@ -9,6 +9,8 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import { registerProfilesInvalidateCallback } from '$lib/features/profiles/game-state.svelte';
+	import { profileService } from '$lib/features/profiles/profile-service';
+	import { watchDirectory } from '$lib/utils/file-watcher';
 	import { updateState } from '$lib/features/updates/update-state.svelte';
 	import { onMount } from 'svelte';
 	import { info, warn } from '@tauri-apps/plugin-log';
@@ -23,23 +25,60 @@
 		queryClient.invalidateQueries({ queryKey: ['profiles'] });
 	});
 
-	onMount(async () => {
+	onMount(() => {
 		info('Starlight frontend initialized');
 
 		// Check for updates (non-blocking)
 		updateState.check();
 
-		const settings = await settingsService.getSettings();
-		if (!settings.among_us_path) {
-			try {
-				const path = await invoke<string | null>('detect_among_us');
-				detectedPath = path ?? '';
-				dialogOpen = true;
-			} catch {
-				warn('Failed to auto-detect Among Us path');
-				dialogOpen = true;
+		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+		let unwatchProfiles: (() => void) | undefined;
+
+		(async () => {
+			const settings = await settingsService.getSettings();
+			if (!settings.among_us_path) {
+				try {
+					const path = await invoke<string | null>('detect_among_us');
+					detectedPath = path ?? '';
+					dialogOpen = true;
+				} catch {
+					warn('Failed to auto-detect Among Us path');
+					dialogOpen = true;
+				}
 			}
-		}
+
+			// Watch the profiles directory so that metadata.json changes (create, rename,
+			// delete, mod updates) are automatically reflected in the UI without relying
+			// solely on manual query invalidations.
+			// Debounced to avoid rapid-fire invalidations when our own mutations write
+			// metadata.json (the mutation already invalidates explicitly).
+			try {
+				const profilesDir = await profileService.getProfilesDir();
+				unwatchProfiles = await watchDirectory(profilesDir, () => {
+					clearTimeout(debounceTimer);
+					debounceTimer = setTimeout(async () => {
+						info('Profiles directory changed, invalidating queries');
+						// Invalidate profiles list, unified-mods, and disk-files queries
+						// since any profile's plugins dir could have changed
+						await Promise.all([
+							queryClient.invalidateQueries({ queryKey: ['profiles'] }),
+							queryClient.invalidateQueries({ queryKey: ['unified-mods'] }),
+							queryClient.invalidateQueries({ queryKey: ['disk-files'] })
+						]);
+						info('Profiles, unified-mods, and disk-files queries invalidated');
+					}, 300);
+				});
+				info(`Watching profiles directory: ${profilesDir}`);
+			} catch (err) {
+				warn(`Failed to set up profiles directory watcher: ${err}`);
+			}
+		})();
+
+		// Cleanup function - called when layout is destroyed
+		return () => {
+			clearTimeout(debounceTimer);
+			unwatchProfiles?.();
+		};
 	});
 
 	document.documentElement.classList.add('dark');

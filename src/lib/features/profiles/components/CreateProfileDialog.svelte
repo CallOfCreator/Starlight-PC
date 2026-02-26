@@ -5,9 +5,6 @@
 	import { Label } from '$lib/components/ui/label';
 	import { profileMutations } from '../mutations';
 	import { createMutation, useQueryClient } from '@tanstack/svelte-query';
-	import type { Profile } from '../schema';
-	import { watchDirectory } from '$lib/utils/file-watcher';
-	import { join } from '@tauri-apps/api/path';
 
 	const queryClient = useQueryClient();
 	const createProfile = createMutation(() => profileMutations.create(queryClient));
@@ -15,37 +12,8 @@
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 	let name = $state('');
 	let error = $state('');
-	let unwatchFn: (() => void) | null = null;
-	let dialogMounted = true;
 
 	const isCreating = $derived(createProfile.isPending);
-
-	async function watchProfileDirectory(profileId: string, profilePath: string) {
-		const pluginsPath = await join(profilePath, 'BepInEx', 'plugins');
-		const cleanup = await watchDirectory(
-			pluginsPath,
-			() => {
-				queryClient.invalidateQueries({ queryKey: ['profiles'] });
-				queryClient.invalidateQueries({ queryKey: ['disk-files', profilePath] });
-
-				const profiles = queryClient.getQueryData<Profile[]>(['profiles']);
-				if (profiles) {
-					const profile = profiles.find((p) => p.id === profileId);
-					if (profile?.bepinex_installed && unwatchFn) {
-						unwatchFn();
-						unwatchFn = null;
-					}
-				}
-			},
-			{ recursive: true }
-		);
-
-		if (dialogMounted) {
-			unwatchFn = cleanup;
-		} else {
-			cleanup();
-		}
-	}
 
 	async function handleCreate() {
 		error = '';
@@ -53,9 +21,7 @@
 
 		try {
 			const trimmed = name.trim();
-			const result = await createProfile.mutateAsync(trimmed);
-
-			watchProfileDirectory(result.id, result.path);
+			await createProfile.mutateAsync(trimmed);
 
 			name = '';
 			open = false;
@@ -69,23 +35,8 @@
 			error = '';
 		} else {
 			name = '';
-			if (unwatchFn) {
-				unwatchFn();
-				unwatchFn = null;
-			}
 		}
 	}
-
-	$effect(() => {
-		dialogMounted = true;
-		return () => {
-			dialogMounted = false;
-			if (unwatchFn) {
-				unwatchFn();
-				unwatchFn = null;
-			}
-		};
-	});
 </script>
 
 <Dialog.Root bind:open {onOpenChange}>
