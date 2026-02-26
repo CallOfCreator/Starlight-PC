@@ -9,6 +9,8 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import { registerProfilesInvalidateCallback } from '$lib/features/profiles/game-state.svelte';
+	import { profileService } from '$lib/features/profiles/profile-service';
+	import { watchDirectory } from '$lib/utils/file-watcher';
 	import { updateState } from '$lib/features/updates/update-state.svelte';
 	import { onMount } from 'svelte';
 	import { info, warn } from '@tauri-apps/plugin-log';
@@ -39,6 +41,31 @@
 				warn('Failed to auto-detect Among Us path');
 				dialogOpen = true;
 			}
+		}
+
+		// Watch the profiles directory so that metadata.json changes (create, rename,
+		// delete, mod updates) are automatically reflected in the UI without relying
+		// solely on manual query invalidations.
+		// Debounced to avoid rapid-fire invalidations when our own mutations write
+		// metadata.json (the mutation already invalidates explicitly).
+		try {
+			const profilesDir = await profileService.getProfilesDir();
+			let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+			await watchDirectory(profilesDir, () => {
+				clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(async () => {
+					info('Profiles directory changed, invalidating queries');
+					// Invalidate profiles list, unified-mods, and disk-files queries
+					// since any profile's plugins dir could have changed
+					await queryClient.invalidateQueries({ queryKey: ['profiles'] });
+					await queryClient.invalidateQueries({ queryKey: ['unified-mods'] });
+					await queryClient.invalidateQueries({ queryKey: ['disk-files'] });
+					info('Profiles, unified-mods, and disk-files queries invalidated');
+				}, 300);
+			});
+			info(`Watching profiles directory: ${profilesDir}`);
+		} catch (err) {
+			warn(`Failed to set up profiles directory watcher: ${err}`);
 		}
 	});
 

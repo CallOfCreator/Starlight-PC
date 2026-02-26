@@ -19,8 +19,6 @@
 	import { Package, CircleAlert, Play, FolderOpen, EllipsisVertical } from '@lucide/svelte';
 	import { CalendarDays, Clock, RotateCcw, Download, Trash2 } from '@jis3r/icons';
 	import { profileQueries } from '../queries';
-	import { watchDirectory } from '$lib/utils/file-watcher';
-	import { info } from '@tauri-apps/plugin-log';
 
 	let {
 		profile,
@@ -33,12 +31,9 @@
 	let selectedModId = $state<string | null>(null);
 
 	const deleteMod = createMutation(() => profileMutations.deleteUnifiedMod(queryClient));
-	const cleanupMods = createMutation(() => profileMutations.cleanupMissingMods(queryClient));
 	const retryBepInExInstall = createMutation(() =>
 		profileMutations.retryBepInExInstall(queryClient)
 	);
-
-	let unwatchFn: (() => void) | null = null;
 
 	async function handleRemoveMod(mod: { id: string; source: 'managed' | 'custom' }) {
 		try {
@@ -50,28 +45,6 @@
 			}
 		} catch (error) {
 			showError(error, 'Remove mod');
-		}
-	}
-
-	async function setupModsWatcher(): Promise<(() => void) | undefined> {
-		if (!profile.bepinex_installed) return;
-
-		try {
-			const pluginsPath = await join(profile.path, 'BepInEx', 'plugins');
-			info(`Setting up mods watcher for: ${pluginsPath}`);
-
-			return await watchDirectory(pluginsPath, async () => {
-				queryClient.invalidateQueries({ queryKey: ['disk-files', profile.path] });
-				try {
-					await cleanupMods.mutateAsync(profile.id);
-					info(`Cleaned up mods for profile: ${profile.id}`);
-				} catch (err) {
-					info(`Failed to cleanup mods: ${err}`);
-				}
-			});
-		} catch (err) {
-			info(`Could not setup mods watcher: ${err}`);
-			return undefined;
 		}
 	}
 
@@ -168,31 +141,6 @@
 	const hiddenModCount = $derived(() => allMods().length - 3);
 
 	const modCount = $derived(unifiedMods().length);
-
-	// Setup file watcher for mods directory
-	$effect(() => {
-		if (profile.bepinex_installed) {
-			let mounted = true;
-
-			const effectCleanup = async () => {
-				const cleanup = await setupModsWatcher();
-				if (mounted && cleanup) {
-					unwatchFn = cleanup;
-				} else if (cleanup) {
-					cleanup();
-				}
-			};
-			effectCleanup();
-
-			return () => {
-				mounted = false;
-				if (unwatchFn) {
-					unwatchFn();
-					unwatchFn = null;
-				}
-			};
-		}
-	});
 </script>
 
 <div class="@container">
