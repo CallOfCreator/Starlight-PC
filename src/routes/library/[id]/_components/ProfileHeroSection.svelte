@@ -7,6 +7,7 @@
 		lastLaunched: string;
 		totalPlayTimeLabel: string;
 		isDisabled: boolean;
+		isLaunchDisabled: boolean;
 		isLaunching: boolean;
 		onLaunch: () => void | Promise<void>;
 		onOpenFolder: () => void | Promise<void>;
@@ -26,6 +27,7 @@
 		lastLaunched,
 		totalPlayTimeLabel,
 		isDisabled,
+		isLaunchDisabled,
 		isLaunching,
 		onLaunch,
 		onOpenFolder,
@@ -70,7 +72,7 @@
 		</div>
 
 		<div class="flex flex-wrap items-center gap-3 pt-2">
-			<Button size="lg" class="gap-2" onclick={onLaunch} disabled={isDisabled || isLaunching}>
+			<Button size="lg" class="gap-2" onclick={onLaunch} disabled={isLaunchDisabled || isLaunching}>
 				{#if isLaunching}
 					<div
 						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
@@ -78,7 +80,7 @@
 					Launching...
 				{:else}
 					<Play class="size-5 fill-current" />
-					<span>Launch</span>
+					<span>{isRunning ? 'Launch Another' : 'Launch'}</span>
 				{/if}
 			</Button>
 
