@@ -4,6 +4,7 @@
 	export interface ProfileHeroSectionProps {
 		profile: Profile;
 		isRunning: boolean;
+		runningInstanceCount: number;
 		lastLaunched: string;
 		totalPlayTimeLabel: string;
 		isDisabled: boolean;
@@ -24,6 +25,7 @@
 	let {
 		profile,
 		isRunning,
+		runningInstanceCount,
 		lastLaunched,
 		totalPlayTimeLabel,
 		isDisabled,
@@ -38,11 +40,18 @@
 
 <div class="mb-8 flex flex-col items-start gap-6 md:flex-row md:items-center">
 	<div
-		class="flex h-36 w-36 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted/20 md:h-45 md:w-45 {isRunning
+		class="relative flex h-36 w-36 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted/20 md:h-45 md:w-45 {isRunning
 			? 'ring-2 ring-green-500/50'
 			: ''}"
 	>
 		<BoxIcon class="h-[60%] w-[60%] text-muted-foreground/50" />
+		{#if runningInstanceCount > 0}
+			<span
+				class="absolute -top-2 -right-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-green-500 px-1.5 text-xs font-semibold text-white shadow-sm"
+			>
+				{runningInstanceCount}
+			</span>
+		{/if}
 	</div>
 
 	<div class="flex flex-1 flex-col gap-4">

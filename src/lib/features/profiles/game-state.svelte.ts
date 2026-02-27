@@ -19,6 +19,14 @@ class GameStateFacade {
 		return gameRuntimeState.runningProfileId;
 	}
 
+	get runningCount(): number {
+		return gameRuntimeState.runningCount;
+	}
+
+	getProfileRunningInstanceCount(profileId: string): number {
+		return gameRuntimeState.getProfileRunningInstanceCount(profileId);
+	}
+
 	isProfileRunning(profileId: string): boolean {
 		return gameRuntimeState.isProfileRunning(profileId);
 	}

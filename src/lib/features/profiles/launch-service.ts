@@ -33,6 +33,9 @@ class LaunchService {
 			logError('Among Us path not configured');
 			throw new Error('Among Us path not configured');
 		}
+		if (!settings.allow_multi_instance_launch && gameState.running) {
+			throw new Error('An Among Us instance is already running');
+		}
 
 		// Xbox platform uses a different launch flow
 		if (settings.game_platform === 'xbox') {
@@ -70,14 +73,13 @@ class LaunchService {
 		debug('Invoking launch_modded command');
 		await invoke('launch_modded', {
 			gameExe: gameExePath,
+			profileId: profile.id,
 			profilePath: profile.path,
 			bepinexDll: bepinexDll,
 			dotnetDir: dotnetDir,
 			coreclrPath: coreClr,
 			platform: settings.game_platform || 'steam'
 		});
-
-		gameState.setRunningProfile(profile.id);
 		info(`Profile ${profile.name} launched successfully`);
 
 		if (settings.close_on_launch) {
@@ -106,8 +108,6 @@ class LaunchService {
 		// Launch the game
 		info('Launching Xbox game...');
 		await invoke('launch_xbox', { appId });
-
-		gameState.setRunningProfile(profile.id);
 		info(`Profile ${profile.name} launched successfully (Xbox)`);
 
 		const settings = await settingsService.getSettings();
@@ -125,6 +125,9 @@ class LaunchService {
 		if (!settings.among_us_path) {
 			logError('Among Us path not configured');
 			throw new Error('Among Us path not configured');
+		}
+		if (!settings.allow_multi_instance_launch && gameState.running) {
+			throw new Error('An Among Us instance is already running');
 		}
 
 		// Xbox platform uses a different launch flow
@@ -145,7 +148,6 @@ class LaunchService {
 			gameExe: gameExePath,
 			platform: settings.game_platform || 'steam'
 		});
-		gameState.setRunningProfile(null);
 		info('Vanilla game launched successfully');
 	}
 
@@ -165,8 +167,6 @@ class LaunchService {
 		// Launch the game
 		info('Launching Xbox game (vanilla)...');
 		await invoke('launch_xbox', { appId });
-
-		gameState.setRunningProfile(null);
 		info('Vanilla game launched successfully (Xbox)');
 	}
 }

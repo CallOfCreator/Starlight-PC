@@ -113,7 +113,10 @@
 			: 'Search mods...'
 	);
 
-	const isRunning = $derived(profile ? gameState.isProfileRunning(profile.id) : false);
+	const runningInstanceCount = $derived(
+		profile ? gameState.getProfileRunningInstanceCount(profile.id) : 0
+	);
+	const isRunning = $derived(runningInstanceCount > 0);
 	const installState = $derived(profile ? gameState.getBepInExState(profile.id) : null);
 	const isInstalling = $derived(
 		profile?.bepinex_installed === false || installState?.status === 'installing'
@@ -227,6 +230,7 @@
 		<ProfileHeroSection
 			{profile}
 			{isRunning}
+			{runningInstanceCount}
 			{lastLaunched}
 			totalPlayTimeLabel={formatPlayTime(totalPlayTime)}
 			{isDisabled}

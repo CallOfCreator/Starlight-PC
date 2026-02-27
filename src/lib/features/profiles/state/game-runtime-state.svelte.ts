@@ -4,11 +4,14 @@ import { notifyProfilesInvalidated } from './profile-invalidation-bridge';
 
 interface GameStatePayload {
 	running: boolean;
-	profileId?: string;
+	running_count?: number;
+	profile_instance_counts?: Record<string, number>;
 }
 
 class GameRuntimeStateStore {
 	#running = $state(false);
+	#runningCount = $state(0);
+	#profileInstanceCounts = $state<Record<string, number>>({});
 	#runningProfileId = $state<string | null>(null);
 	#sessionStartTime = $state<number | null>(null);
 	#currentTime = $state(Date.now());
@@ -23,8 +26,16 @@ class GameRuntimeStateStore {
 		return this.#runningProfileId;
 	}
 
+	get runningCount(): number {
+		return this.#runningCount;
+	}
+
+	getProfileRunningInstanceCount(profileId: string): number {
+		return this.#profileInstanceCounts[profileId] ?? 0;
+	}
+
 	isProfileRunning(profileId: string): boolean {
-		return this.#running && this.#runningProfileId === profileId;
+		return this.getProfileRunningInstanceCount(profileId) > 0;
 	}
 
 	getSessionDuration(): number {
@@ -68,6 +79,16 @@ class GameRuntimeStateStore {
 			}
 
 			this.#running = event.payload.running;
+			this.#runningCount = event.payload.running_count ?? (event.payload.running ? 1 : 0);
+			this.#profileInstanceCounts = event.payload.profile_instance_counts ?? {};
+
+			if (
+				this.#running &&
+				!this.#runningProfileId &&
+				Object.keys(this.#profileInstanceCounts).length > 0
+			) {
+				this.#runningProfileId = Object.keys(this.#profileInstanceCounts)[0] ?? null;
+			}
 
 			if (this.#running && this.#sessionStartTime === null) {
 				this.startTimer();
@@ -80,19 +101,18 @@ class GameRuntimeStateStore {
 			await this.finalizeSession();
 			this.#runningProfileId = null;
 			this.#running = false;
+			this.#runningCount = 0;
+			this.#profileInstanceCounts = {};
 			return;
-		}
-
-		if (this.#running && this.#runningProfileId === profileId) {
-			return;
-		}
-
-		if (this.#running && this.#runningProfileId !== profileId) {
-			await this.finalizeSession();
 		}
 
 		this.#running = true;
+		this.#runningCount = Math.max(1, this.#runningCount);
 		this.#runningProfileId = profileId;
+		this.#profileInstanceCounts = {
+			...this.#profileInstanceCounts,
+			[profileId]: Math.max(1, this.#profileInstanceCounts[profileId] ?? 0)
+		};
 		this.startTimer();
 	}
 

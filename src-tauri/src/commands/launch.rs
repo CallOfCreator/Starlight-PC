@@ -1,16 +1,25 @@
 use crate::utils::epic_api::{self, EpicApi};
 use log::{debug, error, info, warn};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Runtime};
 
-static GAME_PROCESSES: LazyLock<Mutex<Vec<Child>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+struct TrackedGameProcess {
+    child: Child,
+    profile_id: Option<String>,
+}
+
+static GAME_PROCESSES: LazyLock<Mutex<Vec<TrackedGameProcess>>> =
+    LazyLock::new(|| Mutex::new(Vec::new()));
 
 #[derive(Clone, serde::Serialize)]
 pub struct GameStatePayload {
     pub running: bool,
+    pub running_count: usize,
+    pub profile_instance_counts: HashMap<String, usize>,
 }
 
 fn reap_process(mut child: Child) {
@@ -19,11 +28,31 @@ fn reap_process(mut child: Child) {
     }
 }
 
+fn build_state_payload(processes: &[TrackedGameProcess]) -> GameStatePayload {
+    let mut profile_instance_counts = HashMap::new();
+    for tracked in processes {
+        if let Some(profile_id) = &tracked.profile_id {
+            *profile_instance_counts.entry(profile_id.clone()).or_insert(0) += 1;
+        }
+    }
+
+    let running_count = processes.len();
+    GameStatePayload {
+        running: running_count > 0,
+        running_count,
+        profile_instance_counts,
+    }
+}
+
+fn emit_state_snapshot<R: Runtime>(app: &AppHandle<R>, processes: &[TrackedGameProcess]) {
+    let payload = build_state_payload(processes);
+    let _ = app.emit("game-state-changed", payload);
+}
+
 /// Monitors the game process and emits state changes.
 fn monitor_game_process<R: Runtime>(app: AppHandle<R>, process_id: u32) {
     std::thread::spawn(move || {
-        let _ = app.emit("game-state-changed", GameStatePayload { running: true });
-        info!("Game process started, monitoring state");
+        info!("Monitoring game process state");
 
         loop {
             std::thread::sleep(Duration::from_millis(500));
@@ -33,31 +62,25 @@ fn monitor_game_process<R: Runtime>(app: AppHandle<R>, process_id: u32) {
                 break;
             };
 
-            let Some(index) = guard.iter().position(|child| child.id() == process_id) else {
+            let Some(index) = guard.iter().position(|tracked| tracked.child.id() == process_id) else {
                 debug!("Monitored process no longer available");
                 break;
             };
 
-            match guard[index].try_wait() {
+            match guard[index].child.try_wait() {
                 Ok(Some(status)) => {
                     info!("Game process exited with status: {:?}", status);
-                    let child = guard.swap_remove(index);
-                    reap_process(child);
-                    if guard.is_empty() {
-                        let _ = app.emit("game-state-changed", GameStatePayload { running: false });
-                        info!("Game state changed to not running");
-                    }
+                    let tracked = guard.swap_remove(index);
+                    reap_process(tracked.child);
+                    emit_state_snapshot(&app, &guard);
                     break;
                 }
                 Ok(None) => {}
                 Err(e) => {
                     warn!("Failed to check game process state: {}", e);
-                    let child = guard.swap_remove(index);
-                    reap_process(child);
-                    if guard.is_empty() {
-                        let _ = app.emit("game-state-changed", GameStatePayload { running: false });
-                        info!("Game state changed to not running");
-                    }
+                    let tracked = guard.swap_remove(index);
+                    reap_process(tracked.child);
+                    emit_state_snapshot(&app, &guard);
                     break;
                 }
             }
@@ -78,25 +101,29 @@ fn set_dll_directory(path: &str) -> Result<(), String> {
     })
 }
 
-fn launch<R: Runtime>(app: AppHandle<R>, mut cmd: Command) -> Result<(), String> {
+fn launch<R: Runtime>(
+    app: AppHandle<R>,
+    mut cmd: Command,
+    profile_id: Option<String>,
+) -> Result<(), String> {
     let process_id: u32;
     {
         let mut guard = GAME_PROCESSES.lock().unwrap();
 
         let mut i = 0;
         while i < guard.len() {
-            match guard[i].try_wait() {
+            match guard[i].child.try_wait() {
                 Ok(Some(_)) => {
-                    let child = guard.swap_remove(i);
-                    reap_process(child);
+                    let tracked = guard.swap_remove(i);
+                    reap_process(tracked.child);
                 }
                 Ok(None) => {
                     i += 1;
                 }
                 Err(e) => {
                     warn!("Failed to check tracked game process state: {}", e);
-                    let child = guard.swap_remove(i);
-                    reap_process(child);
+                    let tracked = guard.swap_remove(i);
+                    reap_process(tracked.child);
                 }
             }
         }
@@ -107,7 +134,8 @@ fn launch<R: Runtime>(app: AppHandle<R>, mut cmd: Command) -> Result<(), String>
             format!("Failed to launch game: {e}")
         })?;
         process_id = child.id();
-        guard.push(child);
+        guard.push(TrackedGameProcess { child, profile_id });
+        emit_state_snapshot(&app, &guard);
     }
 
     monitor_game_process(app, process_id);
@@ -119,7 +147,8 @@ fn launch<R: Runtime>(app: AppHandle<R>, mut cmd: Command) -> Result<(), String>
 pub async fn launch_modded<R: Runtime>(
     app: AppHandle<R>,
     game_exe: String,
-    _profile_path: String,
+    profile_id: String,
+    profile_path: String,
     bepinex_dll: String,
     dotnet_dir: String,
     coreclr_path: String,
@@ -128,7 +157,7 @@ pub async fn launch_modded<R: Runtime>(
     info!("launch_modded: game_exe={}", game_exe);
     debug!(
         "launch_modded: profile_path={}, bepinex_dll={}, dotnet_dir={}, coreclr_path={}",
-        _profile_path, bepinex_dll, dotnet_dir, coreclr_path
+        profile_path, bepinex_dll, dotnet_dir, coreclr_path
     );
 
     let game_dir = PathBuf::from(&game_exe);
@@ -138,7 +167,7 @@ pub async fn launch_modded<R: Runtime>(
     })?;
 
     #[cfg(windows)]
-    set_dll_directory(&_profile_path)?;
+    set_dll_directory(&profile_path)?;
 
     let mut cmd = Command::new(&game_exe);
     cmd.current_dir(game_dir)
@@ -163,7 +192,7 @@ pub async fn launch_modded<R: Runtime>(
         }
     }
 
-    launch(app, cmd)
+    launch(app, cmd, Some(profile_id))
 }
 
 #[tauri::command]
@@ -191,7 +220,7 @@ pub async fn launch_vanilla<R: Runtime>(
         }
     }
 
-    launch(app, cmd)
+    launch(app, cmd, None)
 }
 
 // =============================================================================
@@ -356,7 +385,10 @@ pub async fn launch_xbox<R: Runtime>(app: AppHandle<R>, app_id: String) -> Resul
     })?;
 
     // Emit game state (UWP app lifecycle cannot be tracked)
-    let _ = app.emit("game-state-changed", GameStatePayload { running: true });
+    let mut payload = build_state_payload(&[]);
+    payload.running = true;
+    payload.running_count = 1;
+    let _ = app.emit("game-state-changed", payload);
     info!("Xbox game launched (no process monitoring available for UWP apps)");
 
     Ok(())

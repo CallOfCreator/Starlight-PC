@@ -36,7 +36,7 @@
 
 	const activeProfile = $derived(activeProfileQuery.data as Profile | null);
 	const sidebarWidth = $derived(getSidebarWidth(sidebar.isMaximized));
-	const canLaunch = $derived<boolean>(canLaunchProfile(activeProfile, !!gameState.running));
+	const canLaunch = $derived<boolean>(canLaunchProfile(activeProfile));
 
 	if (browser) {
 		gameState.init();
@@ -68,7 +68,7 @@
 	}
 
 	async function handleLaunchLastUsed() {
-		await shellController.launchActiveProfile(activeProfile, !!gameState.running);
+		await shellController.launchActiveProfile(activeProfile);
 	}
 </script>
 

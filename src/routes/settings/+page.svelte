@@ -32,6 +32,7 @@
 	let localPlatform = $state<GamePlatform>('steam');
 	let localCacheBepInEx = $state(false);
 	let localCloseOnLaunch = $state(false);
+	let localAllowMultiInstanceLaunch = $state(false);
 
 	// UI state
 	let initialized = $state(false);
@@ -160,6 +161,7 @@
 			localPath = settings.among_us_path ?? '';
 			localUrl = settings.bepinex_url ?? '';
 			localCloseOnLaunch = settings.close_on_launch ?? false;
+			localAllowMultiInstanceLaunch = settings.allow_multi_instance_launch ?? false;
 			localPlatform = settings.game_platform ?? 'steam';
 			localCacheBepInEx = settings.cache_bepinex ?? false;
 			epicService.isLoggedIn().then((v) => (isLoggedIn = v));
@@ -227,6 +229,17 @@
 		},
 		{ lazy: true }
 	);
+
+	watch(
+		() => localAllowMultiInstanceLaunch,
+		() => {
+			if (isHydrating) return;
+			void updateMutation.mutateAsync({
+				allow_multi_instance_launch: localAllowMultiInstanceLaunch
+			});
+		},
+		{ lazy: true }
+	);
 </script>
 
 <div class="scrollbar-styled h-full overflow-y-auto px-10 py-8">
@@ -271,7 +284,7 @@
 				onDownloadToCache={handleDownloadToCache}
 				onClearCache={handleClearCache}
 			/>
-			<AppBehaviorSection bind:localCloseOnLaunch />
+			<AppBehaviorSection bind:localCloseOnLaunch bind:localAllowMultiInstanceLaunch />
 			<AboutStarlightCard githubUrl={GITHUB_URL} onOpenDataFolder={handleOpenDataFolder} />
 		</div>
 	{/if}
