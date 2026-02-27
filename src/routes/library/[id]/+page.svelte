@@ -1,53 +1,36 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { Debounced, watch } from 'runed';
 
-	import ProfilesModCard from '$lib/features/mods/components/ProfilesModCard.svelte';
-	import { modQueries } from '$lib/features/mods/queries';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { profileMutations } from '$lib/features/profiles/mutations';
-	import { launchService } from '$lib/features/profiles/launch-service';
+	import { modQueries } from '$lib/features/mods/queries';
 	import { gameState } from '$lib/features/profiles/game-state.svelte';
+	import { formatPlayTime } from '$lib/utils';
+	import { showError } from '$lib/utils/toast';
 	import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
 	import type { Mod } from '$lib/features/mods/schema';
-	import { formatPlayTime } from '$lib/utils';
-	import { showError, showSuccess } from '$lib/utils/toast';
+	import {
+		createProfileDetailController,
+		profileDetailRuntime
+	} from '$lib/features/profiles/ui/profile-detail-controller';
+	import {
+		filterProfileMods,
+		getProfileModsPagination,
+		paginateProfileMods,
+		PROFILE_MODS_PAGE_SIZE
+	} from '$lib/features/profiles/ui/profile-mods-view-model';
 
-	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import {
-		AlertDialog,
-		AlertDialogAction,
-		AlertDialogCancel,
-		AlertDialogContent,
-		AlertDialogDescription,
-		AlertDialogFooter,
-		AlertDialogHeader,
-		AlertDialogTitle
-	} from '$lib/components/ui/alert-dialog';
-	import * as Dialog from '$lib/components/ui/dialog';
-
-	import { ChevronLeft, ChevronRight, Plus, Trash2 } from '@jis3r/icons';
-	import {
-		BoxIcon,
-		Calendar,
-		Clock,
-		Folder,
-		PencilLineIcon,
-		Play,
-		SearchIcon,
-		X,
-		ArrowLeft,
-		Package
-	} from '@lucide/svelte';
-	import { join } from '@tauri-apps/api/path';
-	import { revealItemInDir } from '@tauri-apps/plugin-opener';
+	import { ArrowLeft, Package } from '@lucide/svelte';
+	import ProfileHeroSection from './_components/ProfileHeroSection.svelte';
+	import ProfileModsToolbar from './_components/ProfileModsToolbar.svelte';
+	import ProfileModsList from './_components/ProfileModsList.svelte';
+	import ProfileDialogs from './_components/ProfileDialogs.svelte';
 
 	const queryClient = useQueryClient();
-
 	const profileId = $derived(page.params.id ?? '');
 
 	const profilesQuery = createQuery(() => profileQueries.all());
@@ -57,7 +40,7 @@
 	}));
 
 	const profile = $derived(
-		(profilesQuery.data as Profile[] | undefined)?.find((p) => p.id === profileId)
+		(profilesQuery.data as Profile[] | undefined)?.find((candidate) => candidate.id === profileId)
 	);
 
 	const updateLastLaunched = createMutation(() => profileMutations.updateLastLaunched(queryClient));
@@ -65,20 +48,28 @@
 	const renameProfile = createMutation(() => profileMutations.rename(queryClient));
 	const deleteUnifiedMod = createMutation(() => profileMutations.deleteUnifiedMod(queryClient));
 
-	const modIds = $derived(profile?.mods.map((m) => m.mod_id) ?? []);
+	const controller = createProfileDetailController({
+		launchProfile: profileDetailRuntime.launchProfile,
+		updateLastLaunched: (id) => updateLastLaunched.mutateAsync(id),
+		deleteProfile: (id) => deleteProfile.mutateAsync(id),
+		removeProfileQueries: (id) => queryClient.removeQueries({ queryKey: ['unified-mods', id] }),
+		renameProfile: (id, newName) => renameProfile.mutateAsync({ profileId: id, newName }),
+		deleteUnifiedMod: (id, mod) => deleteUnifiedMod.mutateAsync({ profileId: id, mod })
+	});
+
+	const modIds = $derived(profile?.mods.map((mod) => mod.mod_id) ?? []);
 	const modsQueries = $derived(modIds.map((id) => createQuery(() => modQueries.byId(id))));
 	const modsMap = $derived(
 		new Map(
 			modsQueries
-				.map((q) => q.data)
-				.filter((m): m is Mod => m !== undefined)
-				.map((m) => [m.id, m])
+				.map((query) => query.data)
+				.filter((mod): mod is Mod => mod !== undefined)
+				.map((mod) => [mod.id, mod])
 		)
 	);
 
 	let searchInput = $state('');
-	let debouncedSearch = $state('');
-	const ITEMS_PER_PAGE = 6;
+	const debouncedSearch = new Debounced(() => searchInput, 150);
 	let currentPage = $state(0);
 
 	let deleteDialogOpen = $state(false);
@@ -89,52 +80,22 @@
 	let isLaunching = $state(false);
 	let renameError = $state('');
 
-	$effect(() => {
-		const value = searchInput;
-		const timer = setTimeout(() => {
-			if (debouncedSearch !== value) {
-				debouncedSearch = value;
-				currentPage = 0;
-			}
-		}, 150);
-		return () => clearTimeout(timer);
-	});
+	watch(
+		() => debouncedSearch.current,
+		() => {
+			currentPage = 0;
+		},
+		{ lazy: true }
+	);
 
-	const displayedMods = $derived.by(() => {
+	const filteredMods = $derived.by(() => {
 		const unified = unifiedModsQuery.data ?? [];
-		const searchLower = debouncedSearch.trim().toLowerCase();
-
-		const filtered = unified.filter((mod) => {
-			if (mod.source === 'managed') {
-				const modInfo = modsMap.get(mod.mod_id);
-				return modInfo?.name.toLowerCase().includes(searchLower) ?? false;
-			}
-			return mod.file.toLowerCase().includes(searchLower);
-		});
-
-		const start = currentPage * ITEMS_PER_PAGE;
-		return filtered.slice(start, start + ITEMS_PER_PAGE);
+		return filterProfileMods(unified, modsMap, debouncedSearch.current);
 	});
+	const displayedMods = $derived(paginateProfileMods(filteredMods, currentPage, PROFILE_MODS_PAGE_SIZE));
+	const pagination = $derived(getProfileModsPagination(filteredMods.length, currentPage, PROFILE_MODS_PAGE_SIZE));
 
-	const totalFilteredMods = $derived.by(() => {
-		const unified = unifiedModsQuery.data ?? [];
-		const searchLower = debouncedSearch.trim().toLowerCase();
-		if (!searchLower) return unified.length;
-
-		return unified.filter((mod) => {
-			if (mod.source === 'managed') {
-				const modInfo = modsMap.get(mod.mod_id);
-				return modInfo?.name.toLowerCase().includes(searchLower) ?? false;
-			}
-			return mod.file.toLowerCase().includes(searchLower);
-		}).length;
-	});
-
-	const isSearching = $derived(debouncedSearch.trim().length > 0);
-	const totalPages = $derived(Math.ceil(totalFilteredMods / ITEMS_PER_PAGE));
-	const hasNextPage = $derived(currentPage < totalPages - 1);
-	const showPagination = $derived(currentPage > 0 || hasNextPage);
-
+	const isSearching = $derived(debouncedSearch.current.trim().length > 0);
 	const searchPlaceholder = $derived(
 		unifiedModsQuery.data
 			? `Search ${unifiedModsQuery.data.length.toLocaleString()} mods...`
@@ -151,52 +112,29 @@
 	const totalPlayTime = $derived(
 		(profile?.total_play_time ?? 0) + (isRunning ? gameState.getSessionDuration() : 0)
 	);
-
 	const lastLaunched = $derived(
 		profile?.last_launched_at ? new Date(profile.last_launched_at).toLocaleDateString() : 'Never'
 	);
 
 	async function handleLaunch() {
 		if (!profile || isDisabled) return;
-
 		isLaunching = true;
 		try {
-			await launchService.launchProfile(profile);
-			await updateLastLaunched.mutateAsync(profile.id);
-		} catch (e) {
-			showError(e);
+			await controller.launchProfile(profile);
+		} catch (error) {
+			showError(error);
 		} finally {
 			isLaunching = false;
 		}
 	}
 
-	async function handleOpenFolder() {
-		if (!profile) return;
-		try {
-			const fullPath = await join(profile.path, 'BepInEx');
-			await revealItemInDir(fullPath);
-		} catch (e) {
-			showError(e, 'Open folder');
-		}
-	}
-
-	function openDeleteDialog() {
-		deleteDialogOpen = true;
-	}
-
 	async function handleDeleteProfile() {
 		if (!profile) return;
-
-		const profileName = profile.name;
 		deleteDialogOpen = false;
-
 		try {
-			await deleteProfile.mutateAsync(profile.id);
-			queryClient.removeQueries({ queryKey: ['unified-mods', profile.id] });
-			showSuccess(`Profile "${profileName}" deleted`);
-			goto('/library');
-		} catch (e) {
-			showError(e);
+			await controller.deleteProfile(profile);
+		} catch (error) {
+			showError(error);
 		}
 	}
 
@@ -209,19 +147,13 @@
 
 	async function handleRenameProfile() {
 		if (!profile || !newProfileName.trim()) return;
-
 		renameError = '';
 		try {
-			await renameProfile.mutateAsync({ profileId: profile.id, newName: newProfileName });
-			showSuccess('Profile renamed');
+			await controller.renameProfile(profile, newProfileName);
 			renameDialogOpen = false;
-		} catch (e) {
-			renameError = e instanceof Error ? e.message : 'Failed to rename';
+		} catch (error) {
+			renameError = error instanceof Error ? error.message : 'Failed to rename';
 		}
-	}
-
-	function handleInstallMods() {
-		goto('/explore');
 	}
 
 	function confirmDeleteMod(mod: UnifiedMod) {
@@ -231,13 +163,11 @@
 
 	async function handleDeleteMod() {
 		if (!profile || !modToDelete) return;
-
 		deleteModDialogOpen = false;
 		try {
-			await deleteUnifiedMod.mutateAsync({ profileId: profile.id, mod: modToDelete });
-			showSuccess('Mod removed');
-		} catch (e) {
-			showError(e, 'Remove mod');
+			await controller.removeMod(profile, modToDelete);
+		} catch (error) {
+			showError(error, 'Remove mod');
 		} finally {
 			modToDelete = null;
 		}
@@ -282,282 +212,63 @@
 			Back to Library
 		</Button>
 
-		<div class="mb-8 flex flex-col items-start gap-6 md:flex-row md:items-center">
-			<div
-				class="flex h-36 w-36 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted/20 md:h-45 md:w-45 {isRunning
-					? 'ring-2 ring-green-500/50'
-					: ''}"
-			>
-				<BoxIcon class="h-[60%] w-[60%] text-muted-foreground/50" />
-			</div>
-
-			<div class="flex flex-1 flex-col gap-4">
-				<div class="flex items-center gap-2">
-					<h1 class="text-3xl font-extrabold tracking-tight md:text-4xl">{profile.name}</h1>
-					<Button
-						size="icon"
-						variant="ghost"
-						class="size-9 rounded-full"
-						onclick={openRenameDialog}
-						title="Rename profile"
-					>
-						<PencilLineIcon class="size-5" />
-					</Button>
-				</div>
-
-				<div class="flex flex-col gap-2 text-muted-foreground">
-					<div class="inline-flex items-center gap-2 text-base md:text-lg">
-						<Calendar class="size-5 text-muted-foreground/70" />
-						<span
-							>Last Launched: <span class="font-medium text-foreground">{lastLaunched}</span></span
-						>
-					</div>
-
-					<div class="inline-flex items-center gap-2 text-base md:text-lg">
-						<Clock class="size-5 text-muted-foreground/70" />
-						<span
-							>Playtime: <span class="font-medium text-foreground"
-								>{formatPlayTime(totalPlayTime)}</span
-							></span
-						>
-					</div>
-				</div>
-
-				<div class="flex flex-wrap items-center gap-3 pt-2">
-					<Button
-						size="lg"
-						class="gap-2"
-						onclick={handleLaunch}
-						disabled={isDisabled || isLaunching}
-					>
-						{#if isLaunching}
-							<div
-								class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-							></div>
-							Launching...
-						{:else}
-							<Play class="size-5 fill-current" />
-							<span>Launch</span>
-						{/if}
-					</Button>
-
-					<Button size="lg" variant="outline" class="gap-2" onclick={handleOpenFolder}>
-						<Folder class="size-5" />
-						<span>Open Folder</span>
-					</Button>
-
-					<Button
-						size="lg"
-						variant="destructive"
-						class="gap-2"
-						onclick={openDeleteDialog}
-						disabled={isDisabled}
-					>
-						<Trash2 class="size-5" />
-						<span>Delete</span>
-					</Button>
-				</div>
-			</div>
-		</div>
+		<ProfileHeroSection
+			{profile}
+			{isRunning}
+			{lastLaunched}
+			totalPlayTimeLabel={formatPlayTime(totalPlayTime)}
+			{isDisabled}
+			{isLaunching}
+			onLaunch={handleLaunch}
+			onOpenFolder={() => controller.openProfileFolder(profile)}
+			onOpenRename={openRenameDialog}
+			onOpenDelete={() => (deleteDialogOpen = true)}
+		/>
 
 		<hr class="my-5 border-t border-muted-foreground/20" />
 
 		<div class="rounded-lg bg-white/3 p-4">
-			<div class="mx-auto mb-5 flex w-full max-w-3xl justify-center gap-3">
-				<div class="relative flex-1">
-					<SearchIcon class="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground/70" />
-					<Input
-						placeholder={searchPlaceholder}
-						bind:value={searchInput}
-						class="h-10 w-full rounded-xl border bg-accent/50 pr-10 pl-10"
-					/>
-					{#if searchInput}
-						<button
-							onclick={() => (searchInput = '')}
-							class="absolute top-1/2 right-3 -translate-y-1/2"
-						>
-							<X class="size-4" />
-						</button>
-					{/if}
-				</div>
-
-				<Button size="lg" class="flex items-center gap-2" onclick={handleInstallMods}>
-					<Plus class="size-5" />
-					<span>Install Mods</span>
-				</Button>
-			</div>
-
-			<main class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-				{#if unifiedModsQuery.isPending}
-					{#each { length: 4 }, i (i)}
-						<Card.Root class="p-3">
-							<div class="flex gap-3">
-								<Skeleton class="h-16 w-16 rounded-lg" />
-								<div class="flex-1 space-y-2">
-									<Skeleton class="h-5 w-48" />
-									<Skeleton class="h-4 w-32" />
-									<Skeleton class="h-4 w-full" />
-								</div>
-							</div>
-						</Card.Root>
-					{/each}
-				{:else if displayedMods.length === 0}
-					<div class="col-span-full flex flex-col items-center justify-center py-24 text-center">
-						<Package class="mb-4 h-12 w-12 text-muted-foreground/30" />
-						{#if isSearching}
-							<h3 class="mb-2 text-xl font-bold">No mods found</h3>
-							<p class="mb-4 text-muted-foreground">Try a different search term</p>
-							<Button variant="outline" onclick={() => (searchInput = '')}>Clear search</Button>
-						{:else}
-							<h3 class="mb-2 text-xl font-bold">No mods installed</h3>
-							<p class="mb-4 text-muted-foreground">Install mods from the Explore page</p>
-							<Button onclick={handleInstallMods}>
-								<Plus class="mr-2 size-4" />
-								Install Mods
-							</Button>
-						{/if}
-					</div>
-				{:else}
-					{#each displayedMods as mod (mod.source === 'managed' ? mod.mod_id : mod.file)}
-						{#if mod.source === 'managed'}
-							{@const modData = modsMap.get(mod.mod_id)}
-							{@const profileMod = profile.mods.find((m) => m.mod_id === mod.mod_id)}
-							{#if modData && profileMod}
-								<ProfilesModCard
-									mod={modData}
-									{profileMod}
-									profileId={profile.id}
-									ondelete={() => confirmDeleteMod(mod)}
-								/>
-							{/if}
-						{:else}
-							<Card.Root class="p-3">
-								<div class="flex items-center gap-3">
-									<div
-										class="flex h-16 w-16 flex-none items-center justify-center rounded-lg bg-muted"
-									>
-										<Package class="h-8 w-8 text-muted-foreground/40" />
-									</div>
-									<div class="min-w-0 flex-1">
-										<h3 class="truncate font-bold">{mod.file}</h3>
-										<p class="text-sm text-muted-foreground">Custom mod (unmanaged)</p>
-									</div>
-									<Button
-										size="sm"
-										variant="destructive"
-										onclick={() => confirmDeleteMod(mod)}
-										disabled={isDisabled}
-									>
-										<Trash2 class="size-4" />
-									</Button>
-								</div>
-							</Card.Root>
-						{/if}
-					{/each}
-				{/if}
-			</main>
-		</div>
-
-		{#if showPagination}
-			<footer class="flex items-center justify-center gap-4 py-8">
-				<Button
-					variant="outline"
-					size="icon"
-					disabled={currentPage === 0}
-					onclick={() => currentPage--}
-				>
-					<ChevronLeft class="size-4" />
-				</Button>
-
-				<span class="text-sm font-medium">
-					Page {currentPage + 1} of {totalPages}
-				</span>
-
-				<Button variant="outline" size="icon" disabled={!hasNextPage} onclick={() => currentPage++}>
-					<ChevronRight class="size-4" />
-				</Button>
-			</footer>
-		{/if}
-	</div>
-{/if}
-
-<!-- Delete Profile Dialog -->
-<AlertDialog bind:open={deleteDialogOpen}>
-	<AlertDialogContent>
-		<AlertDialogHeader>
-			<AlertDialogTitle>Delete Profile?</AlertDialogTitle>
-			<AlertDialogDescription>
-				Are you sure you want to delete <strong>{profile?.name}</strong>? This action cannot be
-				undone and will delete all files associated with this profile.
-			</AlertDialogDescription>
-		</AlertDialogHeader>
-		<AlertDialogFooter>
-			<AlertDialogCancel onclick={() => (deleteDialogOpen = false)}>Cancel</AlertDialogCancel>
-			<AlertDialogAction
-				onclick={handleDeleteProfile}
-				class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-			>
-				Delete Profile
-			</AlertDialogAction>
-		</AlertDialogFooter>
-	</AlertDialogContent>
-</AlertDialog>
-
-<!-- Rename Profile Dialog -->
-<Dialog.Root bind:open={renameDialogOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Rename Profile</Dialog.Title>
-			<Dialog.Description>Enter a new name for this profile.</Dialog.Description>
-		</Dialog.Header>
-
-		<div class="space-y-4 py-4">
-			<Input
-				bind:value={newProfileName}
-				placeholder="Profile name"
-				disabled={renameProfile.isPending}
+			<ProfileModsToolbar
+				bind:searchInput
+				{searchPlaceholder}
+				onInstallMods={controller.goToInstallMods}
 			/>
-			{#if renameError}
-				<p class="text-sm text-destructive">{renameError}</p>
-			{/if}
+			<ProfileModsList
+				isPending={unifiedModsQuery.isPending}
+				{displayedMods}
+				{isSearching}
+				{searchInput}
+				{profile}
+				{modsMap}
+				{isDisabled}
+				showPagination={pagination.showPagination}
+				{currentPage}
+				totalPages={pagination.totalPages}
+				hasNextPage={pagination.hasNextPage}
+				onClearSearch={() => (searchInput = '')}
+				onInstallMods={controller.goToInstallMods}
+				onDeleteMod={confirmDeleteMod}
+				onPrevPage={() => currentPage--}
+				onNextPage={() => currentPage++}
+			/>
 		</div>
+	</div>
 
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (renameDialogOpen = false)}>Cancel</Button>
-			<Button
-				onclick={handleRenameProfile}
-				disabled={renameProfile.isPending || !newProfileName.trim()}
-			>
-				{#if renameProfile.isPending}
-					<div
-						class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-					></div>
-					Renaming...
-				{:else}
-					Rename
-				{/if}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-<!-- Delete Mod Dialog -->
-<AlertDialog bind:open={deleteModDialogOpen}>
-	<AlertDialogContent>
-		<AlertDialogHeader>
-			<AlertDialogTitle>Remove Mod?</AlertDialogTitle>
-			<AlertDialogDescription>
-				Are you sure you want to remove this mod from the profile? The mod file will be deleted.
-			</AlertDialogDescription>
-		</AlertDialogHeader>
-		<AlertDialogFooter>
-			<AlertDialogCancel onclick={cancelDeleteMod}>Cancel</AlertDialogCancel>
-			<AlertDialogAction
-				onclick={handleDeleteMod}
-				class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-			>
-				Remove Mod
-			</AlertDialogAction>
-		</AlertDialogFooter>
-	</AlertDialogContent>
-</AlertDialog>
+	<ProfileDialogs
+		{profile}
+		bind:deleteDialogOpen
+		bind:renameDialogOpen
+		bind:deleteModDialogOpen
+		{modToDelete}
+		bind:newProfileName
+		{renameError}
+		renamePending={renameProfile.isPending}
+		onNewProfileNameInput={(event) => (newProfileName = (event.currentTarget as HTMLInputElement).value)}
+		onCancelDeleteProfile={() => (deleteDialogOpen = false)}
+		onConfirmDeleteProfile={handleDeleteProfile}
+		onCancelRename={() => (renameDialogOpen = false)}
+		onConfirmRename={handleRenameProfile}
+		onCancelDeleteMod={cancelDeleteMod}
+		onConfirmDeleteMod={handleDeleteMod}
+	/>
+{/if}

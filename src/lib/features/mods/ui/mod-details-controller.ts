@@ -1,0 +1,32 @@
+import { marked } from 'marked';
+import { Globe, MessageCircle, Github } from '@lucide/svelte';
+import type { Component } from 'svelte';
+
+export function safeParseMarkdown(content: string | undefined): string {
+	if (!content) return '';
+	try {
+		return marked.parse(content, { async: false });
+	} catch {
+		return content;
+	}
+}
+
+export function pickDefaultVersion(versions: { version: string; created_at: number }[]): string | null {
+	if (versions.length === 0) return null;
+	return [...versions].sort((a, b) => b.created_at - a.created_at)[0].version;
+}
+
+export function getLinkIcon(type: string): Component {
+	switch (type.toLowerCase()) {
+		case 'github':
+			return Github;
+		case 'discord':
+			return MessageCircle;
+		default:
+			return Globe;
+	}
+}
+
+export function formatLinkType(type: string) {
+	return type.charAt(0).toUpperCase() + type.slice(1);
+}
