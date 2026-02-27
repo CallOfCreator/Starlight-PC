@@ -15,10 +15,6 @@ class GameStateFacade {
 		return gameRuntimeState.running;
 	}
 
-	get runningProfileId(): string | null {
-		return gameRuntimeState.runningProfileId;
-	}
-
 	get runningCount(): number {
 		return gameRuntimeState.runningCount;
 	}
@@ -37,10 +33,6 @@ class GameStateFacade {
 
 	init() {
 		return gameRuntimeState.init();
-	}
-
-	setRunningProfile(profileId: string | null) {
-		return gameRuntimeState.setRunningProfile(profileId);
 	}
 
 	destroy() {
