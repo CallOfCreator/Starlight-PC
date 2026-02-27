@@ -179,6 +179,18 @@ export const profileMutations = {
 					persisted.push(mod);
 				}
 
+				for (const mod of persisted) {
+					const previous = previousByModId.get(mod.modId);
+					if (!previous?.file || previous.file === mod.fileName) continue;
+					try {
+						await profileWorkflowService.deleteModFile(args.profilePath, previous.file);
+					} catch (error) {
+						warn(
+							`Failed to remove replaced mod file "${previous.file}" for mod "${mod.modId}": ${error}`
+						);
+					}
+				}
+
 				return installed;
 			} catch (error) {
 				logError(`Failed to install mods for profile "${args.profileId}": ${error}`);

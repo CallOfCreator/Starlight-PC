@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	import type { Mod } from '$lib/features/mods/schema';
 	import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
+	import type { ProfileModUpdatesMap } from '$lib/features/profiles/ui/profile-mod-updates-model';
 
 	export interface ProfileModsListProps {
 		isPending: boolean;
@@ -9,6 +10,9 @@
 		profile: Profile;
 		modsMap: Map<string, Mod>;
 		isDisabled: boolean;
+		modUpdateStatuses: ProfileModUpdatesMap;
+		updatingModIds: Set<string>;
+		isUpdatingAll: boolean;
 		showPagination: boolean;
 		currentPage: number;
 		totalPages: number;
@@ -16,6 +20,7 @@
 		onClearSearch: () => void;
 		onInstallMods: () => void;
 		onDeleteMod: (mod: UnifiedMod) => void;
+		onUpdateMod: (modId: string) => void;
 		onPrevPage: () => void;
 		onNextPage: () => void;
 	}
@@ -36,6 +41,9 @@
 		profile,
 		modsMap,
 		isDisabled,
+		modUpdateStatuses,
+		updatingModIds,
+		isUpdatingAll,
 		showPagination,
 		currentPage,
 		totalPages,
@@ -43,6 +51,7 @@
 		onClearSearch,
 		onInstallMods,
 		onDeleteMod,
+		onUpdateMod,
 		onPrevPage,
 		onNextPage
 	}: ProfileModsListProps = $props();
@@ -84,10 +93,16 @@
 				{@const modData = modsMap.get(mod.mod_id)}
 				{@const profileMod = profile.mods.find((m) => m.mod_id === mod.mod_id)}
 				{#if modData && profileMod}
+					{@const modUpdateStatus = modUpdateStatuses[mod.mod_id]}
 					<ProfilesModCard
 						mod={modData}
 						{profileMod}
 						profileId={profile.id}
+						latestVersion={modUpdateStatus?.latestVersion ?? undefined}
+						isOutdated={modUpdateStatus?.isOutdated ?? false}
+						isCheckingUpdate={modUpdateStatus?.status === 'checking'}
+						isUpdating={isUpdatingAll || updatingModIds.has(mod.mod_id)}
+						onUpdate={() => onUpdateMod(mod.mod_id)}
 						ondelete={() => onDeleteMod(mod)}
 					/>
 				{/if}

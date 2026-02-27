@@ -2,18 +2,23 @@
 	import { page } from '$app/state';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { Debounced, watch } from 'runed';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { profileMutations } from '$lib/features/profiles/mutations';
 	import { modQueries } from '$lib/features/mods/queries';
 	import { gameState } from '$lib/features/profiles/game-state.svelte';
 	import { formatPlayTime } from '$lib/utils';
-	import { showError } from '$lib/utils/toast';
+	import { showError, showSuccess } from '$lib/utils/toast';
 	import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
 	import type { Mod } from '$lib/features/mods/schema';
-	import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
+	import { profileUnifiedModsKey, profilesQueryKey } from '$lib/features/profiles/profile-keys';
 	import { mapModsById } from '$lib/features/mods/ui/mod-query-controller';
 	import { findProfileById } from '$lib/features/profiles/ui/profile-query-controller';
+	import {
+		fetchProfileModUpdates,
+		type ProfileModUpdatesMap
+	} from '$lib/features/profiles/ui/profile-mod-updates-model';
 	import {
 		createProfileDetailController,
 		profileDetailRuntime
@@ -49,6 +54,7 @@
 	const deleteProfile = createMutation(() => profileMutations.delete(queryClient));
 	const renameProfile = createMutation(() => profileMutations.rename(queryClient));
 	const deleteUnifiedMod = createMutation(() => profileMutations.deleteUnifiedMod(queryClient));
+	const installMods = createMutation(() => profileMutations.installMods(queryClient));
 
 	const controller = createProfileDetailController({
 		launchProfile: profileDetailRuntime.launchProfile,
@@ -86,6 +92,8 @@
 	let newProfileName = $state('');
 	let isLaunching = $state(false);
 	let renameError = $state('');
+	let isUpdatingAll = $state(false);
+	const updatingModIds = new SvelteSet<string>();
 
 	watch(
 		() => debouncedSearch.current,
@@ -99,6 +107,28 @@
 		const unified = unifiedModsQuery.data ?? [];
 		return filterProfileMods(unified, modsMap, debouncedSearch.current);
 	});
+	const managedModsForUpdates = $derived.by(() => {
+		const unified = unifiedModsQuery.data ?? [];
+		return unified
+			.filter((mod) => mod.source === 'managed')
+			.map((mod) => ({
+				modId: mod.mod_id,
+				installedVersion: mod.version
+			}));
+	});
+	const modUpdatesSignature = $derived(
+		managedModsForUpdates
+			.map((mod) => `${mod.modId}@${mod.installedVersion}`)
+			.sort()
+			.join('|')
+	);
+	const modUpdatesQuery = createQuery(() => ({
+		queryKey: ['profile-mod-updates', profileId, modUpdatesSignature],
+		enabled: !!profileId && managedModsForUpdates.length > 0,
+		queryFn: () => fetchProfileModUpdates(queryClient, managedModsForUpdates)
+	}));
+	const modUpdatesQueryKey = $derived(['profile-mod-updates', profileId, modUpdatesSignature]);
+	const modUpdateStatuses = $derived((modUpdatesQuery.data ?? {}) as ProfileModUpdatesMap);
 	const displayedMods = $derived(
 		paginateProfileMods(filteredMods, currentPage, PROFILE_MODS_PAGE_SIZE)
 	);
@@ -107,6 +137,10 @@
 	);
 
 	const isSearching = $derived(debouncedSearch.current.trim().length > 0);
+	const updatesAvailableCount = $derived(
+		Object.values(modUpdateStatuses).filter((status) => status.isOutdated).length
+	);
+	const isCheckingUpdates = $derived(modUpdatesQuery.isPending || modUpdatesQuery.isFetching);
 	const searchPlaceholder = $derived(
 		unifiedModsQuery.data
 			? `Search ${unifiedModsQuery.data.length.toLocaleString()} mods...`
@@ -192,6 +226,113 @@
 		deleteModDialogOpen = false;
 		modToDelete = null;
 	}
+
+	function applyInstantUpdate(updatedMods: Array<{ modId: string; version: string }>) {
+		if (!profile) return;
+		const nextByModId = new Map(updatedMods.map((mod) => [mod.modId, mod.version]));
+
+		queryClient.setQueryData<Profile[]>(profilesQueryKey, (current) => {
+			if (!current) return current;
+			return current.map((entry) => {
+				if (entry.id !== profile.id) return entry;
+				return {
+					...entry,
+					mods: entry.mods.map((mod) => {
+						const nextVersion = nextByModId.get(mod.mod_id);
+						return nextVersion ? { ...mod, version: nextVersion } : mod;
+					})
+				};
+			});
+		});
+
+		queryClient.setQueryData<UnifiedMod[]>(profileUnifiedModsKey(profile.id), (current) => {
+			if (!current) return current;
+			return current.map((mod) => {
+				if (mod.source !== 'managed') return mod;
+				const nextVersion = nextByModId.get(mod.mod_id);
+				return nextVersion ? { ...mod, version: nextVersion } : mod;
+			});
+		});
+
+		queryClient.setQueryData<ProfileModUpdatesMap>(modUpdatesQueryKey, (current) => {
+			if (!current) return current;
+			const next = { ...current };
+			for (const mod of updatedMods) {
+				const status = next[mod.modId];
+				if (!status) continue;
+				next[mod.modId] = {
+					...status,
+					installedVersion: mod.version,
+					latestVersion: mod.version,
+					isOutdated: false,
+					status: 'ready'
+				};
+			}
+			return next;
+		});
+	}
+
+	async function handleRefreshUpdates() {
+		if (!managedModsForUpdates.length) return;
+		await modUpdatesQuery.refetch();
+	}
+
+	async function handleUpdateOne(modId: string) {
+		if (!profile) return;
+		const status = modUpdateStatuses[modId];
+		if (!status?.isOutdated || !status.latestVersion) return;
+
+		updatingModIds.add(modId);
+		try {
+			await installMods.mutateAsync({
+				profileId: profile.id,
+				profilePath: profile.path,
+				mods: [{ modId, version: status.latestVersion }]
+			});
+			applyInstantUpdate([{ modId, version: status.latestVersion }]);
+			showSuccess(`Updated ${modsMap.get(modId)?.name ?? modId}`);
+			void modUpdatesQuery.refetch();
+		} catch (error) {
+			showError(error, 'Update mod');
+		} finally {
+			updatingModIds.delete(modId);
+		}
+	}
+
+	async function handleUpdateAll() {
+		if (!profile || updatesAvailableCount === 0) return;
+
+		const modsToUpdate = managedModsForUpdates
+			.map((mod) => {
+				const status = modUpdateStatuses[mod.modId];
+				return status?.isOutdated && status.latestVersion
+					? { modId: mod.modId, version: status.latestVersion }
+					: null;
+			})
+			.filter((mod): mod is { modId: string; version: string } => mod !== null);
+		if (modsToUpdate.length === 0) return;
+
+		isUpdatingAll = true;
+		updatingModIds.clear();
+		for (const mod of modsToUpdate) {
+			updatingModIds.add(mod.modId);
+		}
+		try {
+			await installMods.mutateAsync({
+				profileId: profile.id,
+				profilePath: profile.path,
+				mods: modsToUpdate
+			});
+			applyInstantUpdate(modsToUpdate);
+			showSuccess(`Updated ${modsToUpdate.length} mod${modsToUpdate.length === 1 ? '' : 's'}`);
+			void modUpdatesQuery.refetch();
+		} catch (error) {
+			showError(error, 'Update all mods');
+		} finally {
+			isUpdatingAll = false;
+			updatingModIds.clear();
+		}
+	}
 </script>
 
 {#if profilesQuery.isPending}
@@ -248,7 +389,12 @@
 			<ProfileModsToolbar
 				bind:searchInput
 				{searchPlaceholder}
+				{updatesAvailableCount}
+				{isCheckingUpdates}
+				{isUpdatingAll}
 				onInstallMods={controller.goToInstallMods}
+				onRefreshUpdates={handleRefreshUpdates}
+				onUpdateAll={handleUpdateAll}
 			/>
 			<ProfileModsList
 				isPending={unifiedModsQuery.isPending}
@@ -257,6 +403,9 @@
 				{profile}
 				{modsMap}
 				{isDisabled}
+				{modUpdateStatuses}
+				{updatingModIds}
+				{isUpdatingAll}
 				showPagination={pagination.showPagination}
 				{currentPage}
 				totalPages={pagination.totalPages}
@@ -264,6 +413,7 @@
 				onClearSearch={() => (searchInput = '')}
 				onInstallMods={controller.goToInstallMods}
 				onDeleteMod={confirmDeleteMod}
+				onUpdateMod={handleUpdateOne}
 				onPrevPage={() => currentPage--}
 				onNextPage={() => currentPage++}
 			/>

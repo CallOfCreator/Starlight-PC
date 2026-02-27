@@ -7,15 +7,31 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ModDetailsSidebar from './ModDetailsSidebar.svelte';
 	import { getSidebar } from '$lib/state/sidebar.svelte';
+	import { Download, LoaderCircle } from '@lucide/svelte';
 
 	interface Props {
 		mod: Mod;
 		profileMod: ProfileMod;
 		profileId: string;
+		latestVersion?: string;
+		isOutdated?: boolean;
+		isCheckingUpdate?: boolean;
+		isUpdating?: boolean;
+		onUpdate?: () => void;
 		ondelete?: () => void;
 	}
 
-	let { mod, profileMod, profileId, ondelete }: Props = $props();
+	let {
+		mod,
+		profileMod,
+		profileId,
+		latestVersion,
+		isOutdated = false,
+		isCheckingUpdate = false,
+		isUpdating = false,
+		onUpdate,
+		ondelete
+	}: Props = $props();
 
 	const sidebar = getSidebar();
 	const contentId = $derived(`profile-${profileId}-mod-${mod.id}`);
@@ -27,6 +43,10 @@
 
 	function handleDelete() {
 		ondelete?.();
+	}
+
+	function handleUpdate() {
+		onUpdate?.();
 	}
 </script>
 
@@ -54,28 +74,49 @@
 			{/if}
 		</div>
 
-		<div class="min-w-0 flex-1 pr-12">
+		<div class="min-w-0 flex-1 pr-28">
 			<div class="mb-0.5 flex items-center gap-2">
 				<h3 class="truncate text-base font-bold" title={mod.name}>
 					{mod.name}
 				</h3>
 				<Badge variant="secondary" class="shrink-0 text-[10px]">v{profileMod.version}</Badge>
+				{#if isOutdated}
+					<Badge variant="default" class="shrink-0 text-[10px]">Update available</Badge>
+				{/if}
 			</div>
 			<p class="mb-1 truncate text-sm text-muted-foreground/80">
 				by {mod.author}
 			</p>
+			{#if isOutdated && latestVersion}
+				<p class="mb-1 text-xs text-primary">v{profileMod.version} -&gt; v{latestVersion}</p>
+			{/if}
+			{#if isCheckingUpdate}
+				<p class="mb-1 text-xs text-muted-foreground">Checking for updates...</p>
+			{/if}
 			<p class="line-clamp-2 text-sm text-muted-foreground">
 				{mod.description}
 			</p>
 		</div>
 	</button>
 
-	<Button
-		size="sm"
-		variant="destructive"
-		class="absolute top-3 right-3 flex-none"
-		onclick={handleDelete}
-	>
-		<Trash class="size-4" />
-	</Button>
+	<div class="absolute top-3 right-3 flex items-center gap-2">
+		{#if isOutdated && latestVersion}
+			<Button
+				size="sm"
+				variant="secondary"
+				class="flex-none"
+				onclick={handleUpdate}
+				disabled={isUpdating}
+			>
+				{#if isUpdating}
+					<LoaderCircle class="size-4 animate-spin" />
+				{:else}
+					<Download class="size-4" />
+				{/if}
+			</Button>
+		{/if}
+		<Button size="sm" variant="destructive" class="flex-none" onclick={handleDelete}>
+			<Trash class="size-4" />
+		</Button>
+	</div>
 </Card.Root>

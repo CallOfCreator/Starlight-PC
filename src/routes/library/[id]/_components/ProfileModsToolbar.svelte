@@ -2,19 +2,29 @@
 	export interface ProfileModsToolbarProps {
 		searchPlaceholder: string;
 		searchInput: string;
+		updatesAvailableCount: number;
+		isCheckingUpdates: boolean;
+		isUpdatingAll: boolean;
 		onInstallMods: () => void;
+		onRefreshUpdates: () => void;
+		onUpdateAll: () => void;
 	}
 </script>
 
 <script lang="ts">
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
-	import { SearchIcon, X, Plus } from '@lucide/svelte';
+	import { SearchIcon, X, Plus, RefreshCw, Download } from '@lucide/svelte';
 
 	let {
 		searchPlaceholder,
 		searchInput = $bindable(),
-		onInstallMods
+		updatesAvailableCount,
+		isCheckingUpdates,
+		isUpdatingAll,
+		onInstallMods,
+		onRefreshUpdates,
+		onUpdateAll
 	}: ProfileModsToolbarProps = $props();
 </script>
 
@@ -32,6 +42,30 @@
 			</button>
 		{/if}
 	</div>
+
+	<Button
+		size="lg"
+		variant="outline"
+		class="flex items-center gap-2"
+		onclick={onRefreshUpdates}
+		disabled={isCheckingUpdates}
+	>
+		<RefreshCw class="size-5 {isCheckingUpdates ? 'animate-spin' : ''}" />
+		<span>Refresh</span>
+	</Button>
+
+	{#if updatesAvailableCount > 0}
+		<Button
+			size="lg"
+			variant="secondary"
+			class="flex items-center gap-2"
+			onclick={onUpdateAll}
+			disabled={isUpdatingAll}
+		>
+			<Download class="size-5" />
+			<span>{isUpdatingAll ? 'Updating...' : `Update All (${updatesAvailableCount})`}</span>
+		</Button>
+	{/if}
 
 	<Button size="lg" class="flex items-center gap-2" onclick={onInstallMods}>
 		<Plus class="size-5" />
