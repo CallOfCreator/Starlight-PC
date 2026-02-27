@@ -1,19 +1,24 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { setSidebar } from '$lib/state/sidebar.svelte';
-	import { platform } from '@tauri-apps/plugin-os';
-	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { launchService } from '$lib/features/profiles/launch-service';
 	import type { Profile } from '$lib/features/profiles/schema';
-	import { showError } from '$lib/utils/toast';
 	import { gameState } from '$lib/features/profiles/game-state.svelte';
 	import { profileMutations } from '$lib/features/profiles/mutations';
+	import { error as logError } from '@tauri-apps/plugin-log';
 	import TopBar from './TopBar.svelte';
 	import SideNav from './SideNav.svelte';
 	import StarBackground from '$lib/components/shared/StarBackground.svelte';
 	import type { TauriWindow, Platform } from './types';
+	import { getTauriWindowContext, hasTauriInternals } from './tauri-window-adapter';
+	import {
+		canLaunchProfile,
+		createShellController,
+		getSidebarWidth,
+		shouldFinalizeSidebarTransition
+	} from './shell-controller';
 
 	let { children } = $props();
 
@@ -21,13 +26,17 @@
 	const sidebar = setSidebar();
 	const updateLastLaunched = createMutation(() => profileMutations.updateLastLaunched(queryClient));
 	const activeProfileQuery = createQuery(() => profileQueries.active());
+	const shellController = createShellController({
+		launchProfile: launchService.launchProfile,
+		updateLastLaunched: (id) => updateLastLaunched.mutateAsync(id)
+	});
 
 	let platformName = $state<Platform>('other');
 	let appWindow = $state<TauriWindow | null>(null);
 
 	const activeProfile = $derived(activeProfileQuery.data as Profile | null);
-	const sidebarWidth = $derived(sidebar.isMaximized ? '100%' : '400px');
-	const canLaunch = $derived<boolean>(!gameState.running && !!activeProfile);
+	const sidebarWidth = $derived(getSidebarWidth(sidebar.isMaximized));
+	const canLaunch = $derived<boolean>(canLaunchProfile(activeProfile, !!gameState.running));
 
 	if (browser) {
 		gameState.init();
@@ -41,37 +50,25 @@
 	});
 
 	function initTauri() {
-		const tauriWindow = window as Window & { __TAURI_INTERNALS__?: unknown };
-		if (!tauriWindow.__TAURI_INTERNALS__) return;
+		if (!hasTauriInternals()) return;
 
 		try {
-			const os = platform();
-			platformName = os === 'macos' || os === 'windows' ? os : 'linux';
-			appWindow = getCurrentWindow();
+			const tauriContext = getTauriWindowContext();
+			platformName = tauriContext.platformName;
+			appWindow = tauriContext.appWindow;
 		} catch (e) {
-			console.error('Failed to initialize Tauri APIs:', e);
+			logError(`Failed to initialize Tauri APIs: ${e}`);
 		}
 	}
 
 	function handleTransitionEnd(e: TransitionEvent) {
-		if (e.propertyName === 'width' && !sidebar.isOpen) {
+		if (shouldFinalizeSidebarTransition(e, sidebar.isOpen)) {
 			sidebar.finalizeClose();
 		}
 	}
 
 	async function handleLaunchLastUsed() {
-		if (gameState.running) {
-			showError(new Error('Among Us is already running'));
-			return;
-		}
-		if (!activeProfile) return;
-
-		try {
-			await launchService.launchProfile(activeProfile);
-			await updateLastLaunched.mutateAsync(activeProfile.id);
-		} catch (e) {
-			showError(e);
-		}
+		await shellController.launchActiveProfile(activeProfile, !!gameState.running);
 	}
 </script>
 

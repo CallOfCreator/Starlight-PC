@@ -6,26 +6,23 @@
 	import Prose from '$lib/components/shared/Prose.svelte';
 	import SidebarHeader from '$lib/components/shared/SidebarHeader.svelte';
 	import InstallPanel from './InstallPanel.svelte';
-	import { marked } from 'marked';
 	import { ImageOff, Download, Clock } from '@jis3r/icons';
 	import { openUrl } from '@tauri-apps/plugin-opener';
-	import {
-		ExternalLink,
-		Github,
-		Globe,
-		MessageCircle,
-		ChevronDown,
-		ChevronUp,
-		Trash2,
-		LoaderCircle
-	} from '@lucide/svelte';
+	import { ExternalLink, ChevronDown, ChevronUp, Trash2, LoaderCircle } from '@lucide/svelte';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { modQueries } from '../queries';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { profileMutations } from '$lib/features/profiles/mutations';
+	import { profileDiskFilesKey } from '$lib/features/profiles/profile-keys';
 	import { showError, showSuccess } from '$lib/utils/toast';
 	import type { UnifiedMod, Profile } from '$lib/features/profiles/schema';
 	import { watch } from 'runed';
+	import {
+		formatLinkType,
+		getLinkIcon,
+		pickDefaultVersion,
+		safeParseMarkdown
+	} from '$lib/features/mods/ui/mod-details-controller';
 
 	interface Props {
 		modId: string;
@@ -49,7 +46,7 @@
 	const diskFilesQuery = createQuery(() => {
 		if (!profile?.path) {
 			return {
-				queryKey: ['disk-files', ''] as const,
+				queryKey: profileDiskFilesKey(''),
 				queryFn: async () => [],
 				enabled: false
 			};
@@ -117,16 +114,6 @@
 
 	const isLoading = $derived(modQuery.isPending || modInfoQuery.isPending);
 
-	// Description helpers
-	function safeParseMarkdown(content: string | undefined): string {
-		if (!content) return '';
-		try {
-			return marked.parse(content, { async: false });
-		} catch {
-			return content;
-		}
-	}
-
 	const renderedDescription = $derived(safeParseMarkdown(modInfo?.long_description));
 	const renderedChangelog = $derived(safeParseMarkdown(versionInfo?.changelog));
 	const descriptionLength = $derived(modInfo?.long_description?.length ?? 0);
@@ -143,9 +130,9 @@
 	watch(
 		() => versions,
 		(versions) => {
-			if (versions.length > 0 && !selectedVersion) {
-				const latest = [...versions].sort((a, b) => b.created_at - a.created_at)[0];
-				selectedVersion = latest.version;
+			const latestVersion = pickDefaultVersion(versions);
+			if (latestVersion && !selectedVersion) {
+				selectedVersion = latestVersion;
 			}
 		}
 	);
@@ -176,23 +163,6 @@
 		} finally {
 			isRemoving = false;
 		}
-	}
-
-	// ============ HELPERS ============
-
-	function getLinkIcon(type: string) {
-		switch (type.toLowerCase()) {
-			case 'github':
-				return Github;
-			case 'discord':
-				return MessageCircle;
-			default:
-				return Globe;
-		}
-	}
-
-	function formatLinkType(type: string) {
-		return type.charAt(0).toUpperCase() + type.slice(1);
 	}
 </script>
 

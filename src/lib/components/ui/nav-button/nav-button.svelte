@@ -87,7 +87,7 @@
 				: ''
 	);
 
-	const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
+	const disabledClasses = $derived(disabled ? 'opacity-50 cursor-not-allowed' : '');
 
 	const combinedClasses = $derived(
 		`${baseClasses} ${hoverClasses} ${activeClasses} ${disabledClasses} ${className ?? ''}`.trim()

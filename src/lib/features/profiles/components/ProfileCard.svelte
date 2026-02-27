@@ -1,24 +1,30 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { modQueries } from '$lib/features/mods/queries';
-	import type { Profile, UnifiedMod } from '../schema';
+	import { mapModsById } from '$lib/features/mods/ui/mod-query-controller';
+	import type { Profile } from '../schema';
 	import type { Mod } from '$lib/features/mods/schema';
 	import { gameState } from '../game-state.svelte';
 	import { profileMutations } from '../mutations';
 	import { showError } from '$lib/utils/toast';
 	import { formatPlayTime } from '$lib/utils';
-	import { join } from '@tauri-apps/api/path';
-	import { revealItemInDir } from '@tauri-apps/plugin-opener';
 	import ModDetailsSidebar from '$lib/features/mods/components/ModDetailsSidebar.svelte';
 	import { getSidebar } from '$lib/state/sidebar.svelte';
 	import { Package, CircleAlert, Play, FolderOpen, EllipsisVertical } from '@lucide/svelte';
 	import { CalendarDays, Clock, RotateCcw, Download, Trash2 } from '@jis3r/icons';
 	import { profileQueries } from '../queries';
+	import {
+		buildProfileModChips,
+		buildUnifiedMods,
+		findUnifiedModByChip,
+		openProfileFolder
+	} from '$lib/features/profiles/ui/profile-card-controller';
 
 	let {
 		profile,
@@ -37,9 +43,7 @@
 
 	async function handleRemoveMod(mod: { id: string; source: 'managed' | 'custom' }) {
 		try {
-			const unifiedMod = unifiedMods().find((m) =>
-				m.source === 'managed' ? m.mod_id === mod.id : m.file === mod.id
-			);
+			const unifiedMod = findUnifiedModByChip(mod.id, mod.source, unifiedMods());
 			if (unifiedMod) {
 				await deleteMod.mutateAsync({ profileId: profile.id, mod: unifiedMod });
 			}
@@ -59,15 +63,19 @@
 		sidebar.close();
 	}
 
+	onDestroy(() => {
+		if (!selectedModId) return;
+		const contentId = `profile-${profile.id}-mod-${selectedModId}`;
+		if (sidebar.contentId === contentId) {
+			sidebar.close();
+			sidebar.finalizeClose();
+		}
+	});
+
 	let showAllMods = $state(false);
 
 	async function handleOpenFolder() {
-		try {
-			const fullPath = await join(profile.path, 'BepInEx');
-			await revealItemInDir(fullPath);
-		} catch (error) {
-			showError(error, 'Open folder');
-		}
+		await openProfileFolder(profile.path);
 	}
 
 	const lastLaunched = $derived(
@@ -94,51 +102,20 @@
 	const modIds = $derived(profile.mods.map((m) => m.mod_id));
 	const modsQueries = $derived(modIds.map((id) => createQuery(() => modQueries.byId(id))));
 	const modsMap = $derived(
-		new Map(
-			modsQueries
-				.map((q) => q.data)
-				.filter((m): m is Mod => m !== undefined)
-				.map((m) => [m.id, m])
-		)
+		mapModsById(modsQueries.map((query) => query.data) as Array<Mod | undefined>)
 	);
 
 	const diskFilesQuery = createQuery(() => profileQueries.diskFiles(profile.path));
 
 	const unifiedMods = $derived(() => {
 		const diskFiles = diskFilesQuery.data ?? [];
-		const managedFiles = new Set(profile.mods.map((m) => m.file).filter(Boolean));
-
-		const unified: UnifiedMod[] = profile.mods
-			.filter((m) => m.file && diskFiles.includes(m.file))
-			.map((mod) => ({
-				source: 'managed' as const,
-				mod_id: mod.mod_id,
-				version: mod.version,
-				file: mod.file!
-			}));
-
-		for (const file of diskFiles) {
-			if (!managedFiles.has(file)) {
-				unified.push({ source: 'custom' as const, file });
-			}
-		}
-
-		return unified;
+		return buildUnifiedMods(profile, diskFiles);
 	});
 
-	const allMods = $derived(() => {
-		const unified = unifiedMods();
-		return unified.map((mod) => {
-			if (mod.source === 'managed') {
-				const modInfo = modsMap.get(mod.mod_id);
-				return { id: mod.mod_id, name: modInfo?.name ?? mod.mod_id, source: 'managed' as const };
-			}
-			return { id: mod.file, name: mod.file, source: 'custom' as const };
-		});
-	});
+	const allMods = $derived(buildProfileModChips(unifiedMods(), modsMap));
 
-	const displayedMods = $derived(() => (showAllMods ? allMods() : allMods().slice(0, 3)));
-	const hiddenModCount = $derived(() => allMods().length - 3);
+	const displayedMods = $derived(() => (showAllMods ? allMods : allMods.slice(0, 3)));
+	const hiddenModCount = $derived(() => allMods.length - 3);
 
 	const modCount = $derived(unifiedMods().length);
 </script>
@@ -236,7 +213,7 @@
 							</DropdownMenu.Item>
 						</DropdownMenu.Group>
 
-						{#if allMods().length > 0}
+						{#if allMods.length > 0}
 							<DropdownMenu.Separator />
 							<DropdownMenu.Sub>
 								<DropdownMenu.SubTrigger disabled={isDisabled}>
@@ -244,7 +221,7 @@
 									Manage Mods
 								</DropdownMenu.SubTrigger>
 								<DropdownMenu.SubContent class="max-h-64 overflow-y-auto">
-									{#each allMods() as mod (mod.id)}
+									{#each allMods as mod (mod.id)}
 										<DropdownMenu.Item
 											onclick={() => handleRemoveMod(mod)}
 											class="justify-between"
@@ -274,7 +251,7 @@
 
 		<Card.Content class="pt-4">
 			<!-- Mods List -->
-			{#if allMods().length > 0}
+			{#if allMods.length > 0}
 				<div class="flex flex-wrap items-center gap-1.5">
 					{#each displayedMods() as mod (mod.id)}
 						{#if mod.source === 'managed'}

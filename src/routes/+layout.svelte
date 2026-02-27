@@ -9,11 +9,16 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import { registerProfilesInvalidateCallback } from '$lib/features/profiles/game-state.svelte';
-	import { profileService } from '$lib/features/profiles/profile-service';
+	import { profileWorkflowService } from '$lib/features/profiles/profile-workflow-service';
 	import { watchDirectory } from '$lib/utils/file-watcher';
 	import { updateState } from '$lib/features/updates/update-state.svelte';
 	import { onMount } from 'svelte';
 	import { info, warn } from '@tauri-apps/plugin-log';
+	import {
+		diskFilesQueryKey,
+		profilesQueryKey,
+		unifiedModsQueryKey
+	} from '$lib/features/profiles/profile-keys';
 
 	let { children } = $props();
 	let dialogOpen = $state(false);
@@ -22,7 +27,7 @@
 	// Register the invalidation callback so game-state can trigger query invalidation
 	// without importing queryClient directly
 	registerProfilesInvalidateCallback(() => {
-		queryClient.invalidateQueries({ queryKey: ['profiles'] });
+		queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 	});
 
 	onMount(() => {
@@ -34,7 +39,7 @@
 		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 		let unwatchProfiles: (() => void) | undefined;
 
-		(async () => {
+		const initializeLayout = async () => {
 			const settings = await settingsService.getSettings();
 			if (!settings.among_us_path) {
 				try {
@@ -53,26 +58,35 @@
 			// Debounced to avoid rapid-fire invalidations when our own mutations write
 			// metadata.json (the mutation already invalidates explicitly).
 			try {
-				const profilesDir = await profileService.getProfilesDir();
+				const profilesDir = await profileWorkflowService.getProfilesDir();
 				unwatchProfiles = await watchDirectory(profilesDir, () => {
 					clearTimeout(debounceTimer);
-					debounceTimer = setTimeout(async () => {
-						info('Profiles directory changed, invalidating queries');
-						// Invalidate profiles list, unified-mods, and disk-files queries
-						// since any profile's plugins dir could have changed
-						await Promise.all([
-							queryClient.invalidateQueries({ queryKey: ['profiles'] }),
-							queryClient.invalidateQueries({ queryKey: ['unified-mods'] }),
-							queryClient.invalidateQueries({ queryKey: ['disk-files'] })
-						]);
-						info('Profiles, unified-mods, and disk-files queries invalidated');
+					debounceTimer = setTimeout(() => {
+						void (async () => {
+							try {
+								info('Profiles directory changed, invalidating queries');
+								// Invalidate profiles list, unified-mods, and disk-files queries
+								// since any profile's plugins dir could have changed
+								await Promise.all([
+									queryClient.invalidateQueries({ queryKey: profilesQueryKey }),
+									queryClient.invalidateQueries({ queryKey: unifiedModsQueryKey }),
+									queryClient.invalidateQueries({ queryKey: diskFilesQueryKey })
+								]);
+								info('Profiles, unified-mods, and disk-files queries invalidated');
+							} catch (error) {
+								warn(`Failed to invalidate profile-related queries: ${error}`);
+							}
+						})();
 					}, 300);
 				});
 				info(`Watching profiles directory: ${profilesDir}`);
 			} catch (err) {
 				warn(`Failed to set up profiles directory watcher: ${err}`);
 			}
-		})();
+		};
+		void initializeLayout().catch((error) => {
+			warn(`Failed to initialize layout state: ${error}`);
+		});
 
 		// Cleanup function - called when layout is destroyed
 		return () => {

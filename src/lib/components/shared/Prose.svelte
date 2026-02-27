@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
 	import { openUrl } from '@tauri-apps/plugin-opener';
+	import { error as logError } from '@tauri-apps/plugin-log';
 
 	interface Props {
 		content: string | Promise<string>;
@@ -18,7 +19,9 @@
 		const anchor = (event.target as HTMLElement).closest('a');
 		if (anchor?.href.startsWith('http')) {
 			event.preventDefault();
-			openUrl(anchor.href).catch(console.error);
+			openUrl(anchor.href).catch((error) => {
+				logError(`Failed to open external URL "${anchor.href}": ${error}`);
+			});
 		}
 	}
 </script>

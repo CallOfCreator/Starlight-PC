@@ -12,12 +12,15 @@
 	import { profileMutations } from '$lib/features/profiles/mutations';
 	import { modInstallService } from '$lib/features/profiles/mod-install-service';
 	import { gameState } from '$lib/features/profiles/game-state.svelte';
-	import { showSuccess } from '$lib/utils/toast';
 	import type { ModDependency } from '../schema';
 	import type { Profile } from '$lib/features/profiles/schema';
-	import { onDestroy } from 'svelte';
-	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { watch } from 'runed';
+	import {
+		buildInitialDependencySelection,
+		toggleDependencySelection
+	} from '$lib/features/mods/ui/dependency-selection-model';
+	import { createInstallPanelController } from '$lib/features/mods/ui/install-panel-controller';
+	import type { ResolvedDependency } from '$lib/features/mods/ui/types';
 
 	interface Props {
 		modId: string;
@@ -38,7 +41,7 @@
 	const hasProfiles = $derived(profiles.length > 0);
 
 	const resolvedDepsQuery = createQuery(() => modQueries.resolvedDependencies(dependencies));
-	const resolvedDeps = $derived(resolvedDepsQuery.data ?? []);
+	const resolvedDeps = $derived((resolvedDepsQuery.data ?? []) as ResolvedDependency[]);
 	const installableDependencies = $derived(resolvedDeps.filter((d) => d.type !== 'conflict'));
 
 	// ============ STATE ============
@@ -48,8 +51,18 @@
 	let installError = $state('');
 	let selectedDependencies = $state<Set<string>>(new Set());
 	let modsBeingInstalled = $state<string[]>([]);
-	let progressUnlisten: UnlistenFn | null = null;
 	let hasInitializedDeps = $state(false);
+
+	// ============ MUTATIONS ============
+
+	const installModsMutation = createMutation(() => profileMutations.installMods(queryClient));
+
+	const installController = createInstallPanelController({
+		onDownloadProgress: modInstallService.onDownloadProgress,
+		installMods: (input) => installModsMutation.mutateAsync(input),
+		setModProgress: (modId, progress) => gameState.setModDownloadProgress(modId, progress),
+		clearModProgress: (modId) => gameState.clearModDownload(modId)
+	});
 
 	// ============ DERIVED ============
 
@@ -86,79 +99,46 @@
 		() => resolvedDeps,
 		(currentDeps) => {
 			if (currentDeps.length > 0 && !hasInitializedDeps) {
-				selectedDependencies = new Set(
-					currentDeps.filter((d) => d.type !== 'conflict').map((d) => d.mod_id)
-				);
+				selectedDependencies = buildInitialDependencySelection(currentDeps);
 				hasInitializedDeps = true;
 			}
 		}
 	);
 
-	// ============ MUTATIONS ============
-
-	const installModsMutation = createMutation(() => profileMutations.installMods(queryClient));
-
 	// ============ HANDLERS ============
 
 	function toggleDependency(depModId: string) {
-		selectedDependencies = new Set(
-			selectedDependencies.has(depModId)
-				? [...selectedDependencies].filter((id) => id !== depModId)
-				: [...selectedDependencies, depModId]
-		);
+		selectedDependencies = toggleDependencySelection(selectedDependencies, depModId);
 	}
 
 	async function handleInstall() {
 		if (!selectedProfile || !selectedVersion) return;
 
-		const modsToInstall = [{ modId, version: selectedVersion }];
-
-		// Add selected dependencies that aren't already installed
-		for (const dep of installableDependencies) {
-			if (selectedDependencies.has(dep.mod_id) && !installedDepsInProfile.has(dep.mod_id)) {
-				modsToInstall.push({ modId: dep.mod_id, version: dep.resolvedVersion });
-			}
-		}
+		const modsToInstall = installController.buildInstallList({
+			modId,
+			selectedVersion,
+			installableDependencies,
+			selectedDependencies,
+			installedDepsInProfile
+		});
 
 		modsBeingInstalled = modsToInstall.map((m) => m.modId);
 		isInstalling = true;
 		installError = '';
 
 		try {
-			progressUnlisten = await modInstallService.onDownloadProgress((progress) => {
-				gameState.setModDownloadProgress(progress.mod_id, progress);
+			await installController.installToProfile({
+				profile: selectedProfile,
+				mods: modsToInstall,
+				onInstalled: onInstallComplete
 			});
-
-			await installModsMutation.mutateAsync({
-				profileId: selectedProfileId,
-				profilePath: selectedProfile.path,
-				mods: modsToInstall
-			});
-
-			showSuccess(`Installed to ${selectedProfile.name}`);
-			onInstallComplete?.();
 		} catch (e) {
 			installError = e instanceof Error ? e.message : 'Failed to install';
 		} finally {
 			isInstalling = false;
-			if (progressUnlisten) {
-				progressUnlisten();
-				progressUnlisten = null;
-			}
-			for (const id of modsBeingInstalled) {
-				gameState.clearModDownload(id);
-			}
 			modsBeingInstalled = [];
 		}
 	}
-
-	// Cleanup listener on component destroy
-	onDestroy(() => {
-		if (progressUnlisten) {
-			progressUnlisten();
-			progressUnlisten = null;
-		}
-	});
 </script>
 
 {#if !hasProfiles}
