@@ -63,10 +63,16 @@
 	const profileModsQuery = createQuery(() => ({
 		queryKey: ['mods', 'profile-batch', ...modIds],
 		enabled: modIds.length > 0,
-		queryFn: async () =>
-			Promise.all(modIds.map((id) => queryClient.fetchQuery(modQueries.byId(id))))
+		queryFn: async () => {
+			const results = await Promise.allSettled(
+				modIds.map((id) => queryClient.fetchQuery(modQueries.byId(id)))
+			);
+			return results
+				.filter((result): result is PromiseFulfilledResult<Mod> => result.status === 'fulfilled')
+				.map((result) => result.value);
+		}
 	}));
-	const modsMap = $derived(mapModsById((profileModsQuery.data ?? []) as Mod[]));
+	const modsMap = $derived(mapModsById(profileModsQuery.data ?? []));
 
 	let searchInput = $state('');
 	const debouncedSearch = new Debounced(() => searchInput, 150);
