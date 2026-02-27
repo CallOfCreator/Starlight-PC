@@ -1,6 +1,5 @@
 <script lang="ts" module>
 	export interface BepInExSettingsSectionProps {
-		saved?: boolean;
 		localUrl: string;
 		localCacheBepInEx: boolean;
 		isCacheDownloading: boolean;
@@ -20,7 +19,6 @@
 	import SettingsSection from './SettingsSection.svelte';
 
 	let {
-		saved = false,
 		localUrl = $bindable(),
 		localCacheBepInEx = $bindable(),
 		isCacheDownloading,
@@ -31,7 +29,7 @@
 	}: BepInExSettingsSectionProps = $props();
 </script>
 
-<SettingsSection title="BepInEx Configuration" {saved}>
+<SettingsSection title="BepInEx Configuration">
 	<div class="space-y-4">
 		<div class="space-y-2">
 			<Label for="bepinex-url">BepInEx Download URL</Label>

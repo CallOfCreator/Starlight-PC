@@ -1,6 +1,5 @@
 <script lang="ts" module>
 	export interface AppBehaviorSectionProps {
-		saved?: boolean;
 		localCloseOnLaunch: boolean;
 	}
 </script>
@@ -10,10 +9,10 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import SettingsSection from './SettingsSection.svelte';
 
-	let { saved = false, localCloseOnLaunch = $bindable() }: AppBehaviorSectionProps = $props();
+	let { localCloseOnLaunch = $bindable() }: AppBehaviorSectionProps = $props();
 </script>
 
-<SettingsSection title="App Behavior" {saved}>
+<SettingsSection title="App Behavior">
 	<div class="flex items-center justify-between">
 		<div class="space-y-0.5">
 			<Label for="close-on-launch">Close on Launch</Label>

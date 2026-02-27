@@ -18,7 +18,7 @@
 	import { epicService } from '$lib/features/settings/epic-service';
 	import EpicLoginDialog from '$lib/features/settings/EpicLoginDialog.svelte';
 	import type { BepInExProgress } from '$lib/features/profiles/schema';
-	import { watch } from 'runed';
+	import { Debounced, watch } from 'runed';
 	import GameSettingsSection from './_components/GameSettingsSection.svelte';
 	import BepInExSettingsSection from './_components/BepInExSettingsSection.svelte';
 	import AppBehaviorSection from './_components/AppBehaviorSection.svelte';
@@ -48,6 +48,8 @@
 	let epicLoginOpen = $state(false);
 	let isCacheDownloading = $state(false);
 	let cacheDownloadProgress = $state(0);
+	const debouncedPath = new Debounced(() => localPath, 500);
+	const debouncedUrl = new Debounced(() => localUrl, 500);
 
 	async function validatePath(path: string): Promise<boolean> {
 		if (!path) return ((pathError = ''), true);
@@ -58,17 +60,14 @@
 		return ((pathError = ''), true);
 	}
 
-	async function saveGameConfig() {
-		try {
-			await updateMutation.mutateAsync({ among_us_path: localPath, game_platform: localPlatform });
-		} catch (e) {
-			showError(e);
-		}
-	}
+	async function saveGameConfig(path: string, platform: GamePlatform) {
+		const valid = await validatePath(path);
+		if (!valid) return;
 
-	async function saveBepInExConfig() {
 		try {
-			await updateMutation.mutateAsync({ bepinex_url: localUrl, cache_bepinex: localCacheBepInEx });
+			await updateMutation.mutateAsync({ among_us_path: path, game_platform: platform });
+			const newUrl = await settingsService.autoDetectBepInExArchitecture(path);
+			if (newUrl) localUrl = newUrl;
 		} catch (e) {
 			showError(e);
 		}
@@ -183,27 +182,51 @@
 		}
 	});
 
-	// Save game settings immediately when path/platform changes.
+	// Debounced path save to avoid writing on every keystroke.
 	watch(
-		[() => localPath, () => localPlatform],
-		([newPath, newPlatform], [oldPath, oldPlatform]) => {
+		() => debouncedPath.current,
+		(newPath, oldPath) => {
 			if (isHydrating) return;
-			void saveGameConfig();
+			void saveGameConfig(newPath, localPlatform);
 
-			// Path/platform controls the Xbox identity context; clear stale app id on edits.
-			if ((newPath !== oldPath || newPlatform !== oldPlatform) && settings?.xbox_app_id) {
+			// Path controls the Xbox identity context; clear stale app id on edits.
+			if (newPath !== oldPath && settings?.xbox_app_id) {
 				void updateMutation.mutateAsync({ xbox_app_id: undefined });
 			}
 		},
 		{ lazy: true }
 	);
 
-	// Save BepInEx config immediately.
+	// Save platform changes immediately.
 	watch(
-		[() => localUrl, () => localCacheBepInEx],
+		() => localPlatform,
+		(newPlatform, oldPlatform) => {
+			if (isHydrating) return;
+			void updateMutation.mutateAsync({ game_platform: newPlatform });
+
+			if (newPlatform !== oldPlatform && settings?.xbox_app_id) {
+				void updateMutation.mutateAsync({ xbox_app_id: undefined });
+			}
+		},
+		{ lazy: true }
+	);
+
+	// Debounced URL save to avoid writing on every keystroke.
+	watch(
+		() => debouncedUrl.current,
 		() => {
 			if (isHydrating) return;
-			void saveBepInExConfig();
+			void updateMutation.mutateAsync({ bepinex_url: localUrl });
+		},
+		{ lazy: true }
+	);
+
+	// Save cache toggle immediately.
+	watch(
+		() => localCacheBepInEx,
+		() => {
+			if (isHydrating) return;
+			void updateMutation.mutateAsync({ cache_bepinex: localCacheBepInEx });
 		},
 		{ lazy: true }
 	);

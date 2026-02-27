@@ -2,7 +2,6 @@
 	import type { GamePlatform } from '$lib/features/settings/schema';
 
 	export interface GameSettingsSectionProps {
-		saved?: boolean;
 		localPath: string;
 		localPlatform: GamePlatform;
 		pathError: string;
@@ -29,7 +28,6 @@
 	];
 
 	let {
-		saved = false,
 		localPath = $bindable(),
 		localPlatform = $bindable(),
 		pathError,
@@ -42,7 +40,7 @@
 	}: GameSettingsSectionProps = $props();
 </script>
 
-<SettingsSection title="Game Configuration" {saved} class="lg:col-span-2">
+<SettingsSection title="Game Configuration" class="lg:col-span-2">
 	<div class="space-y-4">
 		<div class="space-y-2">
 			<Label for="among-us-path">Among Us Installation Path</Label>
