@@ -1,25 +1,7 @@
-import { check, type Update, type DownloadEvent } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
+import type { DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import { info, error as logError } from '@tauri-apps/plugin-log';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'installing' | 'error';
-
-export interface UpdateInfo {
-	version: string;
-	currentVersion: string;
-	body: string | undefined;
-	date: string | undefined;
-}
-
-export interface DownloadProgress {
-	downloaded: number;
-	total: number | undefined;
-	percent: number;
-}
+import type { DownloadProgress, UpdateInfo } from './update-types';
+import { updateClient } from './update-client';
 
 // ============================================================================
 // Update Service
@@ -35,7 +17,7 @@ class UpdateService {
 	async checkForUpdate(): Promise<UpdateInfo | null> {
 		try {
 			info('Checking for updates...');
-			const update = await check();
+			const update = await updateClient.check();
 
 			if (update) {
 				info(`Update available: ${update.version}`);
@@ -72,7 +54,7 @@ class UpdateService {
 			let downloaded = 0;
 			let contentLength: number | undefined;
 
-			await this.pendingUpdate.downloadAndInstall((event: DownloadEvent) => {
+			await updateClient.downloadAndInstall(this.pendingUpdate, (event: DownloadEvent) => {
 				switch (event.event) {
 					case 'Started':
 						contentLength = event.data.contentLength ?? undefined;
@@ -98,7 +80,7 @@ class UpdateService {
 			this.pendingUpdate = null;
 
 			// Relaunch the app (on Windows, the installer handles this automatically)
-			await relaunch();
+			await updateClient.relaunch();
 		} catch (err) {
 			logError(`Failed to install update: ${err}`);
 			throw err;
