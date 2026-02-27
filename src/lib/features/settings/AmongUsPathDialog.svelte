@@ -1,7 +1,6 @@
 <script lang="ts">
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import { invoke } from '@tauri-apps/api/core';
 	import type { GamePlatform } from './schema';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
 	import { exists } from '@tauri-apps/plugin-fs';
@@ -35,7 +34,7 @@
 
 	async function handleAutoDetect() {
 		try {
-			const path = await invoke<string | null>('detect_among_us');
+			const path = await settingsService.detectAmongUsPath();
 			if (path) {
 				selectedPath = path;
 			}
@@ -46,7 +45,7 @@
 
 	async function detectAndSetPlatform(path: string) {
 		try {
-			const platform = await invoke<string>('get_game_platform', { path });
+			const platform = await settingsService.detectGamePlatform(path);
 			await updateSettingsMutation.mutateAsync({ game_platform: platform as GamePlatform });
 		} catch {
 			// Fallback to steam if detection fails
