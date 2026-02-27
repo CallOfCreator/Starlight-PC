@@ -32,7 +32,9 @@ fn build_state_payload(processes: &[TrackedGameProcess]) -> GameStatePayload {
     let mut profile_instance_counts = HashMap::new();
     for tracked in processes {
         if let Some(profile_id) = &tracked.profile_id {
-            *profile_instance_counts.entry(profile_id.clone()).or_insert(0) += 1;
+            *profile_instance_counts
+                .entry(profile_id.clone())
+                .or_insert(0) += 1;
         }
     }
 
@@ -62,7 +64,10 @@ fn monitor_game_process<R: Runtime>(app: AppHandle<R>, process_id: u32) {
                 break;
             };
 
-            let Some(index) = guard.iter().position(|tracked| tracked.child.id() == process_id) else {
+            let Some(index) = guard
+                .iter()
+                .position(|tracked| tracked.child.id() == process_id)
+            else {
                 debug!("Monitored process no longer available");
                 break;
             };
