@@ -16,6 +16,7 @@
 	import { info, warn } from '@tauri-apps/plugin-log';
 	import {
 		diskFilesQueryKey,
+		profileLogsQueryKey,
 		profilesQueryKey,
 		unifiedModsQueryKey
 	} from '$lib/features/profiles/profile-keys';
@@ -70,9 +71,10 @@
 								await Promise.all([
 									queryClient.invalidateQueries({ queryKey: profilesQueryKey }),
 									queryClient.invalidateQueries({ queryKey: unifiedModsQueryKey }),
-									queryClient.invalidateQueries({ queryKey: diskFilesQueryKey })
+									queryClient.invalidateQueries({ queryKey: diskFilesQueryKey }),
+									queryClient.invalidateQueries({ queryKey: profileLogsQueryKey })
 								]);
-								info('Profiles, unified-mods, and disk-files queries invalidated');
+								info('Profiles, unified-mods, disk-files, and profile-logs queries invalidated');
 							} catch (error) {
 								warn(`Failed to invalidate profile-related queries: ${error}`);
 							}

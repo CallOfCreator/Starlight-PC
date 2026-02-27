@@ -2,6 +2,7 @@ import { queryOptions } from '@tanstack/svelte-query';
 import { profileWorkflowService } from './profile-workflow-service';
 import {
 	profileDiskFilesKey,
+	profileLogKey,
 	profileUnifiedModsKey,
 	profilesActiveQueryKey,
 	profilesHasAnyQueryKey,
@@ -35,5 +36,11 @@ export const profileQueries = {
 			queryKey: profileUnifiedModsKey(profileId),
 			queryFn: () => profileWorkflowService.getUnifiedMods(profileId),
 			enabled: !!profileId
+		}),
+	log: (profilePath: string) =>
+		queryOptions({
+			queryKey: profileLogKey(profilePath),
+			queryFn: () => profileWorkflowService.getProfileLog(profilePath),
+			enabled: !!profilePath
 		})
 };

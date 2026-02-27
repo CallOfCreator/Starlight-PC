@@ -146,6 +146,19 @@ class ProfileRepository {
 		const filePath = await profilePlatformAdapter.joinPath(pluginsPath, fileName);
 		await profilePlatformAdapter.removePath(filePath);
 	}
+
+	async getProfileLog(profilePath: string): Promise<string> {
+		try {
+			const logPath = await profilePlatformAdapter.joinPath(
+				profilePath,
+				'BepInEx',
+				'LogOutput.log'
+			);
+			return await profilePlatformAdapter.readTextFile(logPath);
+		} catch {
+			return '';
+		}
+	}
 }
 
 export const profileRepository = new ProfileRepository();

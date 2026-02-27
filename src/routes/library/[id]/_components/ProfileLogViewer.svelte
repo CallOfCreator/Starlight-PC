@@ -1,0 +1,163 @@
+<script lang="ts" module>
+	import type { Profile } from '$lib/features/profiles/schema';
+
+	export interface ProfileLogViewerProps {
+		profile: Profile;
+		isRunning: boolean;
+	}
+</script>
+
+<script lang="ts">
+	import * as Card from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { join } from '@tauri-apps/api/path';
+	import { onMount } from 'svelte';
+	import { TerminalSquare, RefreshCw, Pause, Play, Eraser } from '@lucide/svelte';
+	import { profileQueries } from '$lib/features/profiles/queries';
+	import { profileLogKey } from '$lib/features/profiles/profile-keys';
+	import { watchDirectory } from '$lib/utils/file-watcher';
+	import { warn } from '@tauri-apps/plugin-log';
+	import {
+		levelToTextClass,
+		MAX_LOG_LINES,
+		parseProfileLog
+	} from '$lib/features/profiles/ui/profile-log-view-model';
+
+	let { profile, isRunning }: ProfileLogViewerProps = $props();
+
+	const queryClient = useQueryClient();
+	const logQuery = createQuery(() => profileQueries.log(profile.path));
+
+	let logPath = $state('');
+	let logContainer = $state<HTMLDivElement | null>(null);
+	let autoScrollEnabled = $state(true);
+	let isViewCleared = $state(false);
+
+	const parsedLines = $derived(parseProfileLog(logQuery.data ?? ''));
+	const displayedLines = $derived(isViewCleared ? [] : parsedLines);
+
+	$effect(() => {
+		if (!autoScrollEnabled || !logContainer || displayedLines.length === 0) return;
+
+		queueMicrotask(() => {
+			if (!logContainer || !autoScrollEnabled) return;
+			logContainer.scrollTop = logContainer.scrollHeight;
+		});
+	});
+
+	async function refreshLog() {
+		isViewCleared = false;
+		await queryClient.invalidateQueries({ queryKey: profileLogKey(profile.path) });
+	}
+
+	onMount(() => {
+		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+		let stopWatching: (() => void) | undefined;
+
+		void (async () => {
+			logPath = await join(profile.path, 'BepInEx', 'LogOutput.log');
+			const logsDir = await join(profile.path, 'BepInEx');
+
+			try {
+				stopWatching = await watchDirectory(
+					logsDir,
+					() => {
+						clearTimeout(debounceTimer);
+						debounceTimer = setTimeout(() => {
+							void queryClient.invalidateQueries({ queryKey: profileLogKey(profile.path) });
+						}, 200);
+					},
+					{ recursive: false }
+				);
+			} catch (error) {
+				warn(`Failed to watch profile logs directory: ${error}`);
+			}
+		})();
+
+		return () => {
+			clearTimeout(debounceTimer);
+			stopWatching?.();
+		};
+	});
+</script>
+
+<Card.Root class="mt-6 border-border/60 bg-card/50">
+	<Card.Header class="pb-3">
+		<Card.Title class="flex items-center gap-2 text-lg">
+			<TerminalSquare class="size-5" />
+			Profile Logs
+		</Card.Title>
+		<Card.Description class="space-y-1 text-xs">
+			<p class="font-mono text-muted-foreground/90">{logPath || 'Loading log path...'}</p>
+			<p>Live output from `LogOutput.log` for this profile.</p>
+		</Card.Description>
+	</Card.Header>
+	<Card.Content class="space-y-4">
+		<div class="flex flex-wrap items-center gap-2">
+			<Badge variant={isRunning ? 'default' : 'outline'}>{isRunning ? 'Running' : 'Idle'}</Badge>
+			{#if parsedLines.length >= MAX_LOG_LINES}
+				<Badge variant="outline">Showing last {MAX_LOG_LINES.toLocaleString()} lines</Badge>
+			{/if}
+		</div>
+
+		<div class="flex flex-wrap items-center gap-2">
+			<Button
+				size="sm"
+				variant="outline"
+				class="gap-2"
+				onclick={refreshLog}
+				disabled={logQuery.isFetching}
+			>
+				<RefreshCw class={`size-4 ${logQuery.isFetching ? 'animate-spin' : ''}`} />
+				Refresh
+			</Button>
+			<Button
+				size="sm"
+				variant="outline"
+				class="gap-2"
+				onclick={() => {
+					isViewCleared = true;
+				}}
+				disabled={displayedLines.length === 0}
+			>
+				<Eraser class="size-4" />
+				Clear view
+			</Button>
+			<Button
+				size="sm"
+				variant="outline"
+				class="gap-2"
+				onclick={() => {
+					autoScrollEnabled = !autoScrollEnabled;
+				}}
+			>
+				{#if autoScrollEnabled}
+					<Pause class="size-4" />
+					Pause auto-scroll
+				{:else}
+					<Play class="size-4" />
+					Resume auto-scroll
+				{/if}
+			</Button>
+		</div>
+
+		<div
+			bind:this={logContainer}
+			class="scrollbar-styled h-96 overflow-auto rounded-md border border-border/70 bg-black/70 p-3 font-mono text-xs leading-5"
+		>
+			{#if logQuery.isPending}
+				<p class="text-muted-foreground">Loading logs...</p>
+			{:else if logQuery.isError}
+				<p class="text-red-400">Failed to load logs.</p>
+			{:else if displayedLines.length === 0}
+				<p class="text-muted-foreground">No log output yet.</p>
+			{:else}
+				{#each displayedLines as line (line.id)}
+					<p class="break-words whitespace-pre-wrap {levelToTextClass(line.level)}">{line.text}</p>
+				{/each}
+			{/if}
+		</div>
+	</Card.Content>
+</Card.Root>

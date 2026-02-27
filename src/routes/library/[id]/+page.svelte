@@ -32,6 +32,7 @@
 	import ProfileModsToolbar from './_components/ProfileModsToolbar.svelte';
 	import ProfileModsList from './_components/ProfileModsList.svelte';
 	import ProfileDialogs from './_components/ProfileDialogs.svelte';
+	import ProfileLogViewer from './_components/ProfileLogViewer.svelte';
 
 	const queryClient = useQueryClient();
 	const profileId = $derived(page.params.id ?? '');
@@ -263,6 +264,7 @@
 				onNextPage={() => currentPage++}
 			/>
 		</div>
+		<ProfileLogViewer {profile} {isRunning} />
 	</div>
 
 	<ProfileDialogs
