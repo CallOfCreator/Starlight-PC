@@ -89,6 +89,7 @@
 	);
 	const hasInstallError = $derived(installState?.status === 'error');
 	const isDisabled = $derived(isInstalling || isRunning);
+	const isLaunchDisabled = $derived(isInstalling);
 
 	async function handleRetryInstall() {
 		gameState.clearBepInExProgress(profile.id);
@@ -186,10 +187,10 @@
 						e.stopPropagation();
 						onlaunch?.();
 					}}
-					disabled={isDisabled}
+					disabled={isLaunchDisabled}
 				>
 					<Play class="size-4 fill-current" />
-					<span>Launch</span>
+					<span>{isRunning ? 'Launch Another' : 'Launch'}</span>
 				</Button>
 
 				<DropdownMenu.Root>
@@ -203,9 +204,9 @@
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content align="end" class="w-48">
 						<DropdownMenu.Group>
-							<DropdownMenu.Item onclick={() => onlaunch?.()} disabled={isDisabled}>
+							<DropdownMenu.Item onclick={() => onlaunch?.()} disabled={isLaunchDisabled}>
 								<Play class="size-4" />
-								Launch
+								{isRunning ? 'Launch Another' : 'Launch'}
 							</DropdownMenu.Item>
 							<DropdownMenu.Item onclick={handleOpenFolder}>
 								<FolderOpen class="size-4" />

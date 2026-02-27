@@ -118,6 +118,7 @@
 		profile?.bepinex_installed === false || installState?.status === 'installing'
 	);
 	const isDisabled = $derived(isInstalling || isRunning);
+	const isLaunchDisabled = $derived(isInstalling);
 
 	const totalPlayTime = $derived(
 		(profile?.total_play_time ?? 0) + (isRunning ? gameState.getSessionDuration() : 0)
@@ -127,7 +128,7 @@
 	);
 
 	async function handleLaunch() {
-		if (!profile || isDisabled) return;
+		if (!profile || isLaunchDisabled) return;
 		isLaunching = true;
 		try {
 			await controller.launchProfile(profile);
@@ -228,6 +229,7 @@
 			{lastLaunched}
 			totalPlayTimeLabel={formatPlayTime(totalPlayTime)}
 			{isDisabled}
+			{isLaunchDisabled}
 			{isLaunching}
 			onLaunch={handleLaunch}
 			onOpenFolder={() => controller.openProfileFolder(profile)}

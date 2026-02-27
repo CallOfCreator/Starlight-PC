@@ -6,7 +6,7 @@ use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Runtime};
 
-static GAME_PROCESS: LazyLock<Mutex<Option<Child>>> = LazyLock::new(|| Mutex::new(None));
+static GAME_PROCESSES: LazyLock<Mutex<Vec<Child>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
 #[derive(Clone, serde::Serialize)]
 pub struct GameStatePayload {
@@ -14,7 +14,7 @@ pub struct GameStatePayload {
 }
 
 /// Monitors the game process and emits state changes.
-fn monitor_game_process<R: Runtime>(app: AppHandle<R>) {
+fn monitor_game_process<R: Runtime>(app: AppHandle<R>, process_id: u32) {
     std::thread::spawn(move || {
         let _ = app.emit("game-state-changed", GameStatePayload { running: true });
         info!("Game process started, monitoring state");
@@ -22,28 +22,38 @@ fn monitor_game_process<R: Runtime>(app: AppHandle<R>) {
         loop {
             std::thread::sleep(Duration::from_millis(500));
 
-            let Ok(mut guard) = GAME_PROCESS.lock() else {
+            let Ok(mut guard) = GAME_PROCESSES.lock() else {
                 error!("Failed to acquire game process lock");
                 break;
             };
 
-            match guard.as_mut().and_then(|c| c.try_wait().ok()) {
-                Some(Some(status)) => {
+            let Some(index) = guard.iter().position(|child| child.id() == process_id) else {
+                debug!("Monitored process no longer available");
+                break;
+            };
+
+            match guard[index].try_wait() {
+                Ok(Some(status)) => {
                     info!("Game process exited with status: {:?}", status);
-                    *guard = None;
+                    guard.swap_remove(index);
+                    if guard.is_empty() {
+                        let _ = app.emit("game-state-changed", GameStatePayload { running: false });
+                        info!("Game state changed to not running");
+                    }
                     break;
                 }
-                None => {
-                    debug!("Game process no longer available");
-                    *guard = None;
+                Ok(None) => {}
+                Err(e) => {
+                    warn!("Failed to check game process state: {}", e);
+                    guard.swap_remove(index);
+                    if guard.is_empty() {
+                        let _ = app.emit("game-state-changed", GameStatePayload { running: false });
+                        info!("Game state changed to not running");
+                    }
                     break;
                 }
-                Some(None) => {}
             }
         }
-
-        let _ = app.emit("game-state-changed", GameStatePayload { running: false });
-        info!("Game state changed to not running");
     });
 }
 
@@ -61,26 +71,29 @@ fn set_dll_directory(path: &str) -> Result<(), String> {
 }
 
 fn launch<R: Runtime>(app: AppHandle<R>, mut cmd: Command) -> Result<(), String> {
+    let process_id: u32;
     {
-        let mut guard = GAME_PROCESS.lock().unwrap();
+        let mut guard = GAME_PROCESSES.lock().unwrap();
 
-        if guard
-            .as_mut()
-            .is_some_and(|c| c.try_wait().ok().flatten().is_none())
-        {
-            warn!("Attempted to launch game while already running");
-            return Err("Game is already running".into());
-        }
+        guard.retain_mut(|child| match child.try_wait() {
+            Ok(Some(_)) => false,
+            Ok(None) => true,
+            Err(e) => {
+                warn!("Failed to check tracked game process state: {}", e);
+                false
+            }
+        });
 
         info!("Launching game process");
         let child = cmd.spawn().map_err(|e| {
             error!("Failed to launch game: {}", e);
             format!("Failed to launch game: {e}")
         })?;
-        *guard = Some(child);
+        process_id = child.id();
+        guard.push(child);
     }
 
-    monitor_game_process(app);
+    monitor_game_process(app, process_id);
 
     Ok(())
 }
