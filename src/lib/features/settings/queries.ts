@@ -1,10 +1,11 @@
 import { queryOptions } from '@tanstack/svelte-query';
-import { settingsService } from './settings-service';
+import { settingsRepository } from './settings-repository';
+import { settingsQueryKey } from './settings-keys';
 
 export const settingsQueries = {
 	get: () =>
 		queryOptions({
-			queryKey: ['settings'] as const,
-			queryFn: () => settingsService.getSettings()
+			queryKey: settingsQueryKey,
+			queryFn: () => settingsRepository.get()
 		})
 };

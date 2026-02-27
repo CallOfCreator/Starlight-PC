@@ -1,51 +1,55 @@
+import { invoke } from '@tauri-apps/api/core';
 import { appDataDir, join } from '@tauri-apps/api/path';
 import { exists } from '@tauri-apps/plugin-fs';
-import { info, debug } from '@tauri-apps/plugin-log';
-import { type } from 'arktype';
-import { getStore } from '$lib/state/store';
-import { Settings, type AppSettings } from './schema';
-
-const DEFAULT_SETTINGS: AppSettings = {
-	bepinex_url:
-		'https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.752%2Bdd0655f.zip',
-	among_us_path: '',
-	close_on_launch: false,
-	game_platform: 'steam',
-	cache_bepinex: false
-};
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { debug } from '@tauri-apps/plugin-log';
+import { settingsRepository } from './settings-repository';
+import type { BepInExProgress } from '../profiles/schema';
+import type { GamePlatform } from './schema';
 
 class SettingsService {
-	async getSettings(): Promise<AppSettings> {
-		const store = await getStore();
-		const raw = await store.get('settings');
+	readonly getSettings = () => settingsRepository.get();
+	readonly updateSettings = (updates: Parameters<typeof settingsRepository.update>[0]) =>
+		settingsRepository.update(updates);
 
-		if (!raw) {
-			debug('No settings found, using defaults');
-			return DEFAULT_SETTINGS;
-		}
-
-		const result = Settings(raw);
-		if (result instanceof type.errors) {
-			debug('Invalid settings data, using defaults');
-			return DEFAULT_SETTINGS;
-		}
-
-		return result;
-	}
-
-	async updateSettings(updates: Partial<AppSettings>): Promise<void> {
-		info(`Updating settings: ${Object.keys(updates).join(', ')}`);
-		const store = await getStore();
-		const current = await this.getSettings();
-		await store.set('settings', { ...current, ...updates });
-		await store.save();
-		debug('Settings saved');
-	}
+	readonly detectAmongUsPath = () => invoke<string | null>('detect_among_us');
+	readonly detectGamePlatform = (path: string) =>
+		invoke<GamePlatform>('get_game_platform', { path });
 
 	async getBepInExCachePath(): Promise<string> {
 		const dataDir = await appDataDir();
 		const cacheDir = await join(dataDir, 'cache');
 		return await join(cacheDir, 'bepinex.zip');
+	}
+
+	async checkBepInExCacheExists(): Promise<boolean> {
+		return invoke<boolean>('check_bepinex_cache_exists', {
+			cachePath: await this.getBepInExCachePath()
+		});
+	}
+
+	async downloadBepInExToCache(url: string, onProgress?: (progress: BepInExProgress) => void) {
+		const { listen } = await import('@tauri-apps/api/event');
+		let unlisten: (() => void) | undefined;
+		try {
+			if (onProgress) {
+				unlisten = await listen<BepInExProgress>('bepinex-progress', (e) => onProgress(e.payload));
+			}
+			await invoke('download_bepinex_to_cache', {
+				url,
+				cachePath: await this.getBepInExCachePath()
+			});
+		} finally {
+			unlisten?.();
+		}
+	}
+
+	async clearBepInExCache() {
+		await invoke('clear_bepinex_cache', { cachePath: await this.getBepInExCachePath() });
+	}
+
+	async openDataFolder() {
+		await revealItemInDir(await appDataDir());
 	}
 
 	/**

@@ -8,16 +8,11 @@
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import type { AppSettings, GamePlatform } from '$lib/features/settings/schema';
 	import { showError, showSuccess } from '$lib/utils/toast';
-	import { invoke } from '@tauri-apps/api/core';
-	import { appDataDir } from '@tauri-apps/api/path';
 	import { exists } from '@tauri-apps/plugin-fs';
-	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { revealItemInDir } from '@tauri-apps/plugin-opener';
 	import { error as logError } from '@tauri-apps/plugin-log';
 	import { epicService } from '$lib/features/settings/epic-service';
 	import EpicLoginDialog from '$lib/features/settings/EpicLoginDialog.svelte';
-	import type { BepInExProgress } from '$lib/features/profiles/schema';
 	import { Debounced, watch } from 'runed';
 	import GameSettingsSection from './_components/GameSettingsSection.svelte';
 	import BepInExSettingsSection from './_components/BepInExSettingsSection.svelte';
@@ -83,7 +78,7 @@
 
 	async function detectPlatform(path: string) {
 		try {
-			localPlatform = (await invoke<string>('get_game_platform', { path })) as GamePlatform;
+			localPlatform = await settingsService.detectGamePlatform(path);
 		} catch (e) {
 			logError(`Platform detection failed: ${e}`);
 		}
@@ -92,7 +87,7 @@
 	async function handleAutoDetect() {
 		isDetecting = true;
 		try {
-			const path = await invoke<string | null>('detect_among_us');
+			const path = await settingsService.detectAmongUsPath();
 			if (path) {
 				localPath = path;
 				await detectPlatform(path);
@@ -127,19 +122,15 @@
 		if (!localUrl) return showError('BepInEx URL is required');
 		isCacheDownloading = true;
 		cacheDownloadProgress = 0;
-		let unlisten: UnlistenFn | undefined;
 		try {
-			unlisten = await listen<BepInExProgress>('bepinex-progress', (e) => {
-				cacheDownloadProgress = e.payload.progress;
+			await settingsService.downloadBepInExToCache(localUrl, (progress) => {
+				cacheDownloadProgress = progress.progress;
 			});
-			const cachePath = await settingsService.getBepInExCachePath();
-			await invoke('download_bepinex_to_cache', { url: localUrl, cachePath });
 			isCacheExists = true;
 			showSuccess('BepInEx downloaded to cache');
 		} catch (e) {
 			showError(e);
 		} finally {
-			unlisten?.();
 			isCacheDownloading = false;
 			cacheDownloadProgress = 0;
 		}
@@ -147,9 +138,7 @@
 
 	async function handleClearCache() {
 		try {
-			await invoke('clear_bepinex_cache', {
-				cachePath: await settingsService.getBepInExCachePath()
-			});
+			await settingsService.clearBepInExCache();
 			isCacheExists = false;
 			showSuccess('Cache cleared');
 		} catch (e) {
@@ -159,7 +148,7 @@
 
 	async function handleOpenDataFolder() {
 		try {
-			await revealItemInDir(await appDataDir());
+			await settingsService.openDataFolder();
 		} catch (e) {
 			showError(e, 'Open data folder');
 		}
@@ -174,9 +163,7 @@
 			localPlatform = settings.game_platform ?? 'steam';
 			localCacheBepInEx = settings.cache_bepinex ?? false;
 			epicService.isLoggedIn().then((v) => (isLoggedIn = v));
-			settingsService.getBepInExCachePath().then(async (p) => {
-				isCacheExists = await invoke<boolean>('check_bepinex_cache_exists', { cachePath: p });
-			});
+			settingsService.checkBepInExCacheExists().then((v) => (isCacheExists = v));
 			initialized = true;
 			isHydrating = false;
 		}
