@@ -1,9 +1,5 @@
-import {
-	updateService,
-	type UpdateInfo,
-	type UpdateStatus,
-	type DownloadProgress
-} from './update-service';
+import { updateService } from './update-service';
+import type { UpdateInfo, UpdateStatus, DownloadProgress } from './update-types';
 import { error as logError } from '@tauri-apps/plugin-log';
 
 // ============================================================================

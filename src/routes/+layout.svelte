@@ -5,7 +5,7 @@
 	import { Toaster } from '$lib/components/ui/sonner';
 	import AppShell from '$lib/components/layout/AppShell.svelte';
 	import AmongUsPathDialog from '$lib/features/settings/AmongUsPathDialog.svelte';
-	import UpdateNotification from '$lib/components/shared/UpdateNotification.svelte';
+	import UpdateNotification from '$lib/features/updates/UpdateNotification.svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import { registerProfilesInvalidateCallback } from '$lib/features/profiles/game-state.svelte';
