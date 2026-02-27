@@ -32,6 +32,10 @@ class ProfilePlatformAdapter {
 		return JSON.parse(content) as T;
 	}
 
+	readTextFile(path: string) {
+		return readTextFile(path);
+	}
+
 	writeJsonFile(path: string, data: unknown) {
 		return writeTextFile(path, JSON.stringify(data, null, 2));
 	}

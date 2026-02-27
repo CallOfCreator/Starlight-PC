@@ -194,6 +194,8 @@ class ProfileWorkflowService {
 
 	readonly deleteModFile = (profilePath: string, fileName: string) =>
 		profileRepository.deleteModFile(profilePath, fileName);
+	readonly getProfileLog = (profilePath: string, fileName = 'LogOutput.log') =>
+		profileRepository.getProfileLog(profilePath, fileName);
 
 	async getUnifiedMods(profileId: string): Promise<UnifiedMod[]> {
 		const profile = await this.getProfileById(profileId);
