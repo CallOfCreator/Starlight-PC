@@ -20,7 +20,7 @@
 
 <main class="grid grid-cols-1 gap-4 xl:grid-cols-2">
 	{#if modsQuery.isPending && !modsQuery.data}
-		{#each { length: 6 }, i (i)}
+		{#each { length: 12 }, i (i)}
 			<ModCardSkeleton />
 		{/each}
 	{:else if !modsQuery.data?.length}
