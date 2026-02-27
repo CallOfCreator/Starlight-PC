@@ -1,12 +1,7 @@
 <script lang="ts">
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Switch } from '$lib/components/ui/switch';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
-	import { Settings, RefreshCw, Download, Trash2, Check } from '@jis3r/icons';
-	import { Github, Heart, ExternalLink } from '@lucide/svelte';
+	import { Settings } from '@jis3r/icons';
 	import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
 	import { settingsQueries } from '$lib/features/settings/queries';
 	import { settingsMutations } from '$lib/features/settings/mutations';
@@ -14,16 +9,20 @@
 	import type { AppSettings, GamePlatform } from '$lib/features/settings/schema';
 	import { showError, showSuccess } from '$lib/utils/toast';
 	import { invoke } from '@tauri-apps/api/core';
+	import { appDataDir } from '@tauri-apps/api/path';
 	import { exists } from '@tauri-apps/plugin-fs';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { openUrl } from '@tauri-apps/plugin-opener';
-	import { getVersion } from '@tauri-apps/api/app';
+	import { revealItemInDir } from '@tauri-apps/plugin-opener';
 	import { error as logError } from '@tauri-apps/plugin-log';
 	import { epicService } from '$lib/features/settings/epic-service';
 	import EpicLoginDialog from '$lib/features/settings/EpicLoginDialog.svelte';
 	import type { BepInExProgress } from '$lib/features/profiles/schema';
 	import { Debounced, watch } from 'runed';
+	import GameSettingsSection from './_components/GameSettingsSection.svelte';
+	import BepInExSettingsSection from './_components/BepInExSettingsSection.svelte';
+	import AppBehaviorSection from './_components/AppBehaviorSection.svelte';
+	import AboutStarlightCard from './_components/AboutStarlightCard.svelte';
 
 	const GITHUB_URL = 'https://github.com/All-Of-Us-Mods/Starlight-PC';
 
@@ -41,7 +40,7 @@
 
 	// UI state
 	let initialized = $state(false);
-	let skipFirstSave = $state(true);
+	let isHydrating = $state(true);
 	let pathError = $state('');
 	let isLoggedIn = $state(false);
 	let isCacheExists = $state(false);
@@ -49,29 +48,8 @@
 	let epicLoginOpen = $state(false);
 	let isCacheDownloading = $state(false);
 	let cacheDownloadProgress = $state(0);
-
-	// Saved indicators (keyed by section)
-	let saved = $state<Record<string, boolean>>({ game: false, bepinex: false, app: false });
-	let savedTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
-
-	// Debounced values
 	const debouncedPath = new Debounced(() => localPath, 500);
 	const debouncedUrl = new Debounced(() => localUrl, 500);
-
-	// Stars for about section
-	const stars = Array.from({ length: 24 }, (_, i) => ({
-		left: `${(i * 17 + 7) % 100}%`,
-		top: `${(i * 23 + 11) % 100}%`,
-		size: (i % 3) + 1,
-		delay: `${(i * 0.15) % 2}s`,
-		duration: `${2 + (i % 3)}s`
-	}));
-
-	function showSaved(section: 'game' | 'bepinex' | 'app') {
-		if (savedTimeouts[section]) clearTimeout(savedTimeouts[section]);
-		saved[section] = true;
-		savedTimeouts[section] = setTimeout(() => (saved[section] = false), 2000);
-	}
 
 	async function validatePath(path: string): Promise<boolean> {
 		if (!path) return ((pathError = ''), true);
@@ -82,22 +60,14 @@
 		return ((pathError = ''), true);
 	}
 
-	async function saveGameConfig() {
-		if (pathError) return;
-		try {
-			await updateMutation.mutateAsync({ among_us_path: localPath, game_platform: localPlatform });
-			const newUrl = await settingsService.autoDetectBepInExArchitecture(localPath);
-			if (newUrl) localUrl = newUrl;
-			showSaved('game');
-		} catch (e) {
-			showError(e);
-		}
-	}
+	async function saveGameConfig(path: string, platform: GamePlatform) {
+		const valid = await validatePath(path);
+		if (!valid) return;
 
-	async function saveBepInExConfig() {
 		try {
-			await updateMutation.mutateAsync({ bepinex_url: localUrl, cache_bepinex: localCacheBepInEx });
-			showSaved('bepinex');
+			await updateMutation.mutateAsync({ among_us_path: path, game_platform: platform });
+			const newUrl = await settingsService.autoDetectBepInExArchitecture(path);
+			if (newUrl) localUrl = newUrl;
 		} catch (e) {
 			showError(e);
 		}
@@ -106,7 +76,6 @@
 	async function saveAppBehavior() {
 		try {
 			await updateMutation.mutateAsync({ close_on_launch: localCloseOnLaunch });
-			showSaved('app');
 		} catch (e) {
 			showError(e);
 		}
@@ -188,6 +157,14 @@
 		}
 	}
 
+	async function handleOpenDataFolder() {
+		try {
+			await revealItemInDir(await appDataDir());
+		} catch (e) {
+			showError(e, 'Open data folder');
+		}
+	}
+
 	// Initialize state from settings
 	$effect(() => {
 		if (settings && !initialized) {
@@ -201,60 +178,65 @@
 				isCacheExists = await invoke<boolean>('check_bepinex_cache_exists', { cachePath: p });
 			});
 			initialized = true;
-			setTimeout(() => (skipFirstSave = false), 600);
+			isHydrating = false;
 		}
 	});
 
-	// Clear xbox_app_id when path/platform changes
-	watch(
-		[() => debouncedPath.current, () => localPlatform],
-		([newPath, newPlatform], [oldPath, oldPlatform]) => {
-			if (skipFirstSave || !settings?.xbox_app_id) return;
-
-			if (newPath !== oldPath || newPlatform !== oldPlatform) {
-				updateMutation.mutateAsync({ xbox_app_id: undefined });
-			}
-		},
-		{ lazy: true }
-	);
-
-	// Auto-save watchers
+	// Debounced path save to avoid writing on every keystroke.
 	watch(
 		() => debouncedPath.current,
-		(p) => {
-			if (!skipFirstSave) {
-				validatePath(p).then((ok) => {
-					if (ok) saveGameConfig();
-				});
+		(newPath, oldPath) => {
+			if (isHydrating) return;
+			void saveGameConfig(newPath, localPlatform);
+
+			// Path controls the Xbox identity context; clear stale app id on edits.
+			if (newPath !== oldPath && settings?.xbox_app_id) {
+				void updateMutation.mutateAsync({ xbox_app_id: undefined });
 			}
 		},
 		{ lazy: true }
 	);
+
+	// Save platform changes immediately.
 	watch(
 		() => localPlatform,
-		() => {
-			if (!skipFirstSave) saveGameConfig();
+		(newPlatform, oldPlatform) => {
+			if (isHydrating) return;
+			void updateMutation.mutateAsync({ game_platform: newPlatform });
+
+			if (newPlatform !== oldPlatform && settings?.xbox_app_id) {
+				void updateMutation.mutateAsync({ xbox_app_id: undefined });
+			}
 		},
 		{ lazy: true }
 	);
+
+	// Debounced URL save to avoid writing on every keystroke.
 	watch(
 		() => debouncedUrl.current,
 		() => {
-			if (!skipFirstSave) saveBepInExConfig();
+			if (isHydrating) return;
+			void updateMutation.mutateAsync({ bepinex_url: localUrl });
 		},
 		{ lazy: true }
 	);
+
+	// Save cache toggle immediately.
 	watch(
 		() => localCacheBepInEx,
 		() => {
-			if (!skipFirstSave) saveBepInExConfig();
+			if (isHydrating) return;
+			void updateMutation.mutateAsync({ cache_bepinex: localCacheBepInEx });
 		},
 		{ lazy: true }
 	);
+
+	// Save app behavior immediately.
 	watch(
 		() => localCloseOnLaunch,
 		() => {
-			if (!skipFirstSave) saveAppBehavior();
+			if (isHydrating) return;
+			void saveAppBehavior();
 		},
 		{ lazy: true }
 	);
@@ -282,228 +264,28 @@
 		</div>
 	{:else}
 		<div class="grid max-w-4xl gap-6 lg:grid-cols-2">
-			<!-- Game Configuration -->
-			<div class="space-y-6 lg:col-span-2">
-				<div class="rounded-xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm">
-					<div class="mb-4 flex items-center justify-between">
-						<h2 class="text-lg font-semibold tracking-tight">Game Configuration</h2>
-						{#if saved.game}
-							<span
-								class="flex animate-in items-center gap-1.5 text-xs font-medium text-green-500 duration-200 fade-in"
-							>
-								<Check size={14} /> Saved
-							</span>
-						{/if}
-					</div>
-					<div class="space-y-4">
-						<div class="space-y-2">
-							<Label for="among-us-path">Among Us Installation Path</Label>
-							<div class="flex gap-2">
-								<Input
-									id="among-us-path"
-									bind:value={localPath}
-									placeholder="C:\Program Files (x86)\Steam\steamapps\common\Among Us"
-									onblur={() => validatePath(localPath)}
-									class={pathError ? 'border-destructive focus-visible:ring-destructive' : ''}
-								/>
-								<Button variant="outline" onclick={handleBrowse}>Browse</Button>
-								<Button variant="outline" onclick={handleAutoDetect} disabled={isDetecting}>
-									<RefreshCw class="h-4 w-4 {isDetecting ? 'animate-spin' : ''}" />
-								</Button>
-							</div>
-							<p class="text-sm text-muted-foreground">
-								The folder where Among Us is installed (contains "Among Us.exe")
-							</p>
-							{#if pathError}<p class="text-sm text-destructive">{pathError}</p>{/if}
-						</div>
-
-						<div class="space-y-2">
-							<Label>Game Platform</Label>
-							<div class="flex gap-2">
-								{#each [['steam', 'Steam / Itch.io'], ['epic', 'Epic Games'], ['xbox', 'Xbox / MS Store']] as [value, label], i (i)}
-									<Button
-										variant={localPlatform === value ? 'default' : 'outline'}
-										onclick={() => (localPlatform = value as GamePlatform)}
-										class="flex-1"
-									>
-										{label}
-									</Button>
-								{/each}
-							</div>
-							<p class="text-sm text-muted-foreground">
-								{localPlatform === 'steam'
-									? 'Steam installation'
-									: localPlatform === 'epic'
-										? 'Epic Games installation (requires Epic Games login)'
-										: 'Xbox / Microsoft Store installation'}
-							</p>
-						</div>
-
-						{#if localPlatform === 'epic'}
-							<div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
-								<div class="space-y-0.5">
-									<p class="text-sm font-medium">Account Status</p>
-									<p
-										class="text-sm"
-										class:text-green-500={isLoggedIn}
-										class:text-orange-500={!isLoggedIn}
-									>
-										{isLoggedIn ? 'Logged in' : 'Not logged in'}
-									</p>
-								</div>
-								<Button variant="outline" size="sm" onclick={() => (epicLoginOpen = true)}>
-									{isLoggedIn ? 'Manage Account' : 'Login to Epic Games'}
-								</Button>
-							</div>
-						{/if}
-					</div>
-				</div>
-			</div>
-
-			<!-- BepInEx Configuration -->
-			<div class="rounded-xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm">
-				<div class="mb-4 flex items-center justify-between">
-					<h2 class="text-lg font-semibold tracking-tight">BepInEx Configuration</h2>
-					{#if saved.bepinex}
-						<span
-							class="flex animate-in items-center gap-1.5 text-xs font-medium text-green-500 duration-200 fade-in"
-						>
-							<Check size={14} /> Saved
-						</span>
-					{/if}
-				</div>
-				<div class="space-y-4">
-					<div class="space-y-2">
-						<Label for="bepinex-url">BepInEx Download URL</Label>
-						<Input
-							id="bepinex-url"
-							bind:value={localUrl}
-							placeholder="https://builds.bepinex.dev/..."
-						/>
-					</div>
-
-					<div class="flex items-center justify-between">
-						<div class="space-y-0.5">
-							<Label for="cache-bepinex">Keep Local Copy</Label>
-							<p class="text-sm text-muted-foreground">
-								Cache BepInEx locally for faster profile creation
-							</p>
-						</div>
-						<Switch id="cache-bepinex" bind:checked={localCacheBepInEx} />
-					</div>
-
-					{#if localCacheBepInEx}
-						<div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
-							<div class="space-y-0.5">
-								<p class="text-sm font-medium">Cache Status</p>
-								<p class="text-sm text-muted-foreground">
-									{#if isCacheDownloading}
-										Downloading... {cacheDownloadProgress.toFixed(1)}%
-									{:else}
-										<span
-											class:text-green-500={isCacheExists}
-											class:text-orange-500={!isCacheExists}
-										>
-											{isCacheExists ? 'Cached' : 'Not cached'}
-										</span>
-									{/if}
-								</p>
-							</div>
-							<div class="flex gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onclick={handleDownloadToCache}
-									disabled={isCacheDownloading}
-								>
-									{#if isCacheDownloading}
-										<RefreshCw class="mr-2 h-4 w-4 animate-spin" /> Downloading
-									{:else}
-										<Download class="mr-2 h-4 w-4" /> {isCacheExists ? 'Re-download' : 'Download'}
-									{/if}
-								</Button>
-								{#if isCacheExists}
-									<Button variant="outline" size="sm" onclick={handleClearCache}>
-										<Trash2 class="mr-2 h-4 w-4" /> Clear
-									</Button>
-								{/if}
-							</div>
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<!-- App Behavior -->
-			<div class="rounded-xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm">
-				<div class="mb-4 flex items-center justify-between">
-					<h2 class="text-lg font-semibold tracking-tight">App Behavior</h2>
-					{#if saved.app}
-						<span
-							class="flex animate-in items-center gap-1.5 text-xs font-medium text-green-500 duration-200 fade-in"
-						>
-							<Check size={14} /> Saved
-						</span>
-					{/if}
-				</div>
-				<div class="flex items-center justify-between">
-					<div class="space-y-0.5">
-						<Label for="close-on-launch">Close on Launch</Label>
-						<p class="text-sm text-muted-foreground">
-							Automatically close launcher after launching game
-						</p>
-					</div>
-					<Switch id="close-on-launch" bind:checked={localCloseOnLaunch} />
-				</div>
-			</div>
-
-			<!-- About -->
-			<div class="lg:col-span-2">
-				<div class="relative overflow-hidden rounded-xl border border-border/50 p-8">
-					<div class="pointer-events-none absolute inset-0 overflow-hidden">
-						{#each stars as star, i (i)}
-							<div
-								class="star absolute rounded-full bg-primary/30"
-								style="left:{star.left};top:{star.top};width:{star.size}px;height:{star.size}px; {star.duration} ease-in-out infinite;animation-delay:{star.delay}"
-							></div>
-						{/each}
-					</div>
-					<div
-						class="relative z-10 flex flex-col items-center text-center sm:flex-row sm:text-left"
-					>
-						<div class="flex-1">
-							<div class="mb-3 flex flex-col items-center gap-2 sm:flex-row sm:items-baseline">
-								<h2 class="text-xl font-semibold">Starlight PC</h2>
-								<span
-									class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-								>
-									{#await getVersion()}v...{:then v}v{v}{/await}
-								</span>
-							</div>
-							<div
-								class="mb-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground/70 sm:justify-start"
-							>
-								<span class="flex items-center gap-1"
-									><Heart class="h-3 w-3" />{new Date().getFullYear()} All Of Us Mods</span
-								>
-								<span class="hidden sm:inline">|</span>
-								<span>GNU GPLv3 License</span>
-							</div>
-							<div class="flex flex-wrap justify-center gap-3 sm:justify-start">
-								<Button
-									variant="outline"
-									size="sm"
-									onclick={() => openUrl(GITHUB_URL)}
-									class="gap-2"
-								>
-									<Github class="h-4 w-4" /> View Source <ExternalLink
-										class="h-3 w-3 text-muted-foreground"
-									/>
-								</Button>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
+			<GameSettingsSection
+				bind:localPath
+				bind:localPlatform
+				{pathError}
+				{isDetecting}
+				{isLoggedIn}
+				onBrowse={handleBrowse}
+				onAutoDetect={handleAutoDetect}
+				onOpenEpicLogin={() => (epicLoginOpen = true)}
+				onPathBlur={() => validatePath(localPath)}
+			/>
+			<BepInExSettingsSection
+				bind:localUrl
+				bind:localCacheBepInEx
+				{isCacheDownloading}
+				{cacheDownloadProgress}
+				{isCacheExists}
+				onDownloadToCache={handleDownloadToCache}
+				onClearCache={handleClearCache}
+			/>
+			<AppBehaviorSection bind:localCloseOnLaunch />
+			<AboutStarlightCard githubUrl={GITHUB_URL} onOpenDataFolder={handleOpenDataFolder} />
 		</div>
 	{/if}
 </div>
