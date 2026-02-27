@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -61,6 +62,15 @@
 		selectedModId = null;
 		sidebar.close();
 	}
+
+	onDestroy(() => {
+		if (!selectedModId) return;
+		const contentId = `profile-${profile.id}-mod-${selectedModId}`;
+		if (sidebar.contentId === contentId) {
+			sidebar.close();
+			sidebar.finalizeClose();
+		}
+	});
 
 	let showAllMods = $state(false);
 
