@@ -39,7 +39,7 @@
 		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 		let unwatchProfiles: (() => void) | undefined;
 
-		(async () => {
+		const initializeLayout = async () => {
 			const settings = await settingsService.getSettings();
 			if (!settings.among_us_path) {
 				try {
@@ -61,23 +61,32 @@
 				const profilesDir = await profileWorkflowService.getProfilesDir();
 				unwatchProfiles = await watchDirectory(profilesDir, () => {
 					clearTimeout(debounceTimer);
-					debounceTimer = setTimeout(async () => {
-						info('Profiles directory changed, invalidating queries');
-						// Invalidate profiles list, unified-mods, and disk-files queries
-						// since any profile's plugins dir could have changed
-						await Promise.all([
-							queryClient.invalidateQueries({ queryKey: profilesQueryKey }),
-							queryClient.invalidateQueries({ queryKey: unifiedModsQueryKey }),
-							queryClient.invalidateQueries({ queryKey: diskFilesQueryKey })
-						]);
-						info('Profiles, unified-mods, and disk-files queries invalidated');
+					debounceTimer = setTimeout(() => {
+						void (async () => {
+							try {
+								info('Profiles directory changed, invalidating queries');
+								// Invalidate profiles list, unified-mods, and disk-files queries
+								// since any profile's plugins dir could have changed
+								await Promise.all([
+									queryClient.invalidateQueries({ queryKey: profilesQueryKey }),
+									queryClient.invalidateQueries({ queryKey: unifiedModsQueryKey }),
+									queryClient.invalidateQueries({ queryKey: diskFilesQueryKey })
+								]);
+								info('Profiles, unified-mods, and disk-files queries invalidated');
+							} catch (error) {
+								warn(`Failed to invalidate profile-related queries: ${error}`);
+							}
+						})();
 					}, 300);
 				});
 				info(`Watching profiles directory: ${profilesDir}`);
 			} catch (err) {
 				warn(`Failed to set up profiles directory watcher: ${err}`);
 			}
-		})();
+		};
+		void initializeLayout().catch((error) => {
+			warn(`Failed to initialize layout state: ${error}`);
+		});
 
 		// Cleanup function - called when layout is destroyed
 		return () => {

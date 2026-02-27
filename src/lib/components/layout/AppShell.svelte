@@ -7,6 +7,7 @@
 	import type { Profile } from '$lib/features/profiles/schema';
 	import { gameState } from '$lib/features/profiles/game-state.svelte';
 	import { profileMutations } from '$lib/features/profiles/mutations';
+	import { error as logError } from '@tauri-apps/plugin-log';
 	import TopBar from './TopBar.svelte';
 	import SideNav from './SideNav.svelte';
 	import StarBackground from '$lib/components/shared/StarBackground.svelte';
@@ -56,7 +57,7 @@
 			platformName = tauriContext.platformName;
 			appWindow = tauriContext.appWindow;
 		} catch (e) {
-			console.error('Failed to initialize Tauri APIs:', e);
+			logError(`Failed to initialize Tauri APIs: ${e}`);
 		}
 	}
 

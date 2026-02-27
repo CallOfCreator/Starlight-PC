@@ -3,6 +3,7 @@ import { join } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { apiFetch } from '$lib/api/client';
+import { warn } from '@tauri-apps/plugin-log';
 import {
 	ModVersionInfo as ModVersionInfoSchema,
 	ModVersion,
@@ -76,7 +77,7 @@ class ModInstallService {
 				});
 			} catch {
 				// If we can't resolve a dependency, skip it
-				console.warn(`Failed to resolve dependency: ${dep.mod_id}`);
+				warn(`Failed to resolve dependency: ${dep.mod_id}`);
 			}
 		}
 
@@ -109,24 +110,6 @@ class ModInstallService {
 		});
 
 		return info.file_name;
-	}
-
-	/**
-	 * Installs multiple mods to a profile
-	 * Returns an array of { modId, version, fileName } for successful installs
-	 */
-	async installModsToProfile(
-		mods: Array<{ modId: string; version: string }>,
-		profilePath: string
-	): Promise<Array<{ modId: string; version: string; fileName: string }>> {
-		const results: Array<{ modId: string; version: string; fileName: string }> = [];
-
-		for (const mod of mods) {
-			const fileName = await this.installModToProfile(mod.modId, mod.version, profilePath);
-			results.push({ modId: mod.modId, version: mod.version, fileName });
-		}
-
-		return results;
 	}
 
 	async removeModFromProfile(fileName: string, profilePath: string): Promise<void> {

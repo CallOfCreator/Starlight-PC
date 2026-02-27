@@ -23,7 +23,11 @@ class FileWatcherManager {
 				() => {
 					info(`File change detected in: ${path}`);
 					const entry = this.#watchers.get(path);
-					entry?.callbacks.forEach((cb) => cb());
+					entry?.callbacks.forEach((cb) => {
+						void Promise.resolve(cb()).catch((error) => {
+							logError(`Watcher callback failed for ${path}: ${error}`);
+						});
+					});
 				},
 				{ recursive }
 			);

@@ -1,12 +1,11 @@
 <script lang="ts" module>
-	import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
+	import type { Profile } from '$lib/features/profiles/schema';
 
 	export interface ProfileDialogsProps {
 		profile: Profile | null;
 		deleteDialogOpen: boolean;
 		renameDialogOpen: boolean;
 		deleteModDialogOpen: boolean;
-		modToDelete: UnifiedMod | null;
 		newProfileName: string;
 		renameError: string;
 		renamePending: boolean;
@@ -40,7 +39,6 @@
 		deleteDialogOpen = $bindable(),
 		renameDialogOpen = $bindable(),
 		deleteModDialogOpen = $bindable(),
-		modToDelete,
 		newProfileName = $bindable(),
 		renameError,
 		renamePending,

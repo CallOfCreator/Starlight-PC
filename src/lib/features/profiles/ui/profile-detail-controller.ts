@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { launchService } from '$lib/features/profiles/launch-service';
@@ -33,7 +34,7 @@ export function createProfileDetailController(deps: ProfileDetailControllerDeps)
 			await deps.deleteProfile(profile.id);
 			deps.removeProfileQueries(profile.id);
 			showSuccess(`Profile "${profile.name}" deleted`);
-			goto('/library');
+			goto(resolve('/library'));
 		},
 
 		renameProfile: (profile: Profile, newName: string) =>
@@ -46,7 +47,7 @@ export function createProfileDetailController(deps: ProfileDetailControllerDeps)
 			showSuccess('Mod removed');
 		},
 
-		goToInstallMods: () => goto('/explore')
+		goToInstallMods: () => goto(resolve('/explore'))
 	};
 }
 

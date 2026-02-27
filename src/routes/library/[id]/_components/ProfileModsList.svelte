@@ -6,7 +6,6 @@
 		isPending: boolean;
 		displayedMods: UnifiedMod[];
 		isSearching: boolean;
-		searchInput: string;
 		profile: Profile;
 		modsMap: Map<string, Mod>;
 		isDisabled: boolean;
@@ -34,7 +33,6 @@
 		isPending,
 		displayedMods,
 		isSearching,
-		searchInput,
 		profile,
 		modsMap,
 		isDisabled,

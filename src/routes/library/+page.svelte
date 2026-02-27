@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Library, Play, Ghost, Plus } from '@lucide/svelte';
+	import { Library, Plus } from '@lucide/svelte';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import CreateProfileDialog from '$lib/features/profiles/components/CreateProfileDialog.svelte';
 	import { Button } from '$lib/components/ui/button';

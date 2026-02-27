@@ -59,11 +59,14 @@
 		deleteUnifiedMod: (id, mod) => deleteUnifiedMod.mutateAsync({ profileId: id, mod })
 	});
 
-	const modIds = $derived(profile?.mods.map((mod) => mod.mod_id) ?? []);
-	const modsQueries = $derived(modIds.map((id) => createQuery(() => modQueries.byId(id))));
-	const modsMap = $derived(
-		mapModsById(modsQueries.map((query) => query.data) as Array<Mod | undefined>)
-	);
+	const modIds = $derived(Array.from(new Set(profile?.mods.map((mod) => mod.mod_id) ?? [])));
+	const profileModsQuery = createQuery(() => ({
+		queryKey: ['mods', 'profile-batch', ...modIds],
+		enabled: modIds.length > 0,
+		queryFn: async () =>
+			Promise.all(modIds.map((id) => queryClient.fetchQuery(modQueries.byId(id))))
+	}));
+	const modsMap = $derived(mapModsById((profileModsQuery.data ?? []) as Mod[]));
 
 	let searchInput = $state('');
 	const debouncedSearch = new Debounced(() => searchInput, 150);
@@ -238,7 +241,6 @@
 				isPending={unifiedModsQuery.isPending}
 				{displayedMods}
 				{isSearching}
-				{searchInput}
 				{profile}
 				{modsMap}
 				{isDisabled}
@@ -260,7 +262,6 @@
 		bind:deleteDialogOpen
 		bind:renameDialogOpen
 		bind:deleteModDialogOpen
-		{modToDelete}
 		bind:newProfileName
 		{renameError}
 		renamePending={renameProfile.isPending}
