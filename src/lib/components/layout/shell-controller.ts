@@ -10,8 +10,8 @@ export function getSidebarWidth(isMaximized: boolean): string {
 	return isMaximized ? '100%' : '400px';
 }
 
-export function canLaunchProfile(activeProfile: Profile | null, running: boolean): boolean {
-	return !running && !!activeProfile;
+export function canLaunchProfile(activeProfile: Profile | null): boolean {
+	return !!activeProfile;
 }
 
 export function shouldFinalizeSidebarTransition(
@@ -23,11 +23,7 @@ export function shouldFinalizeSidebarTransition(
 
 export function createShellController(deps: ShellControllerDeps) {
 	return {
-		async launchActiveProfile(activeProfile: Profile | null, running: boolean): Promise<void> {
-			if (running) {
-				showError(new Error('Among Us is already running'));
-				return;
-			}
+		async launchActiveProfile(activeProfile: Profile | null): Promise<void> {
 			if (!activeProfile) return;
 
 			try {

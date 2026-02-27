@@ -15,8 +15,12 @@ class GameStateFacade {
 		return gameRuntimeState.running;
 	}
 
-	get runningProfileId(): string | null {
-		return gameRuntimeState.runningProfileId;
+	get runningCount(): number {
+		return gameRuntimeState.runningCount;
+	}
+
+	getProfileRunningInstanceCount(profileId: string): number {
+		return gameRuntimeState.getProfileRunningInstanceCount(profileId);
 	}
 
 	isProfileRunning(profileId: string): boolean {
@@ -29,10 +33,6 @@ class GameStateFacade {
 
 	init() {
 		return gameRuntimeState.init();
-	}
-
-	setRunningProfile(profileId: string | null) {
-		return gameRuntimeState.setRunningProfile(profileId);
 	}
 
 	destroy() {

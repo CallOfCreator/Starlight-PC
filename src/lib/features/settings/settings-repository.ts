@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 		'https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.752%2Bdd0655f.zip',
 	among_us_path: '',
 	close_on_launch: false,
+	allow_multi_instance_launch: false,
 	game_platform: 'steam',
 	cache_bepinex: false
 };
@@ -22,7 +23,7 @@ class SettingsRepository {
 			return DEFAULT_SETTINGS;
 		}
 
-		const result = Settings(raw);
+		const result = Settings({ ...DEFAULT_SETTINGS, ...raw });
 		if (result instanceof type.errors) {
 			debug('Invalid settings data, using defaults');
 			return DEFAULT_SETTINGS;

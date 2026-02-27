@@ -8,6 +8,8 @@ import { info, error as logError, debug } from '@tauri-apps/plugin-log';
 import type { Profile } from './schema';
 
 class LaunchService {
+	private launchInFlight = false;
+
 	/**
 	 * Gets or fetches the Xbox AppUserModelId, caching it in settings.
 	 */
@@ -26,64 +28,72 @@ class LaunchService {
 	}
 
 	async launchProfile(profile: Profile): Promise<void> {
-		info(`Launching profile: ${profile.name} (${profile.id})`);
-		const settings = await settingsService.getSettings();
+		if (this.launchInFlight) throw new Error('A launch is already in progress');
+		this.launchInFlight = true;
+		try {
+			info(`Launching profile: ${profile.name} (${profile.id})`);
+			const settings = await settingsService.getSettings();
 
-		if (!settings.among_us_path) {
-			logError('Among Us path not configured');
-			throw new Error('Among Us path not configured');
-		}
+			if (!settings.among_us_path) {
+				logError('Among Us path not configured');
+				throw new Error('Among Us path not configured');
+			}
+			if (!settings.allow_multi_instance_launch && gameState.running) {
+				throw new Error('An Among Us instance is already running');
+			}
 
-		// Xbox platform uses a different launch flow
-		if (settings.game_platform === 'xbox') {
-			await this.launchXboxModded(profile, settings.among_us_path);
-			return;
-		}
+			// Xbox platform uses a different launch flow
+			if (settings.game_platform === 'xbox') {
+				await this.launchXboxModded(profile, settings.among_us_path);
+				return;
+			}
 
-		const gameExePath = await join(settings.among_us_path, 'Among Us.exe');
-		const gameExists = await exists(gameExePath);
-		if (!gameExists) {
-			logError(`Among Us.exe not found at: ${gameExePath}`);
-			throw new Error('Among Us.exe not found at configured path');
-		}
+			const gameExePath = await join(settings.among_us_path, 'Among Us.exe');
+			const gameExists = await exists(gameExePath);
+			if (!gameExists) {
+				logError(`Among Us.exe not found at: ${gameExePath}`);
+				throw new Error('Among Us.exe not found at configured path');
+			}
 
-		const bepinexDll = await join(profile.path, 'BepInEx', 'core', 'BepInEx.Unity.IL2CPP.dll');
-		const bepinexExists = await exists(bepinexDll);
-		if (!bepinexExists) {
-			logError(`BepInEx DLL not found at: ${bepinexDll}`);
-			throw new Error('BepInEx DLL not found. Please wait for installation to complete.');
-		}
+			const bepinexDll = await join(profile.path, 'BepInEx', 'core', 'BepInEx.Unity.IL2CPP.dll');
+			const bepinexExists = await exists(bepinexDll);
+			if (!bepinexExists) {
+				logError(`BepInEx DLL not found at: ${bepinexDll}`);
+				throw new Error('BepInEx DLL not found. Please wait for installation to complete.');
+			}
 
-		const dotnetDir = await join(profile.path, 'dotnet');
-		const coreClr = await join(dotnetDir, 'coreclr.dll');
-		const coreClrExists = await exists(coreClr);
-		if (!coreClrExists) {
-			logError(`dotnet runtime not found at: ${coreClr}`);
-			throw new Error('dotnet runtime not found. Please wait for installation to complete.');
-		}
+			const dotnetDir = await join(profile.path, 'dotnet');
+			const coreClr = await join(dotnetDir, 'coreclr.dll');
+			const coreClrExists = await exists(coreClr);
+			if (!coreClrExists) {
+				logError(`dotnet runtime not found at: ${coreClr}`);
+				throw new Error('dotnet runtime not found. Please wait for installation to complete.');
+			}
 
-		if (settings.game_platform === 'epic') {
-			debug('Epic platform detected, ensuring logged in');
-			await epicService.ensureLoggedIn();
-		}
+			if (settings.game_platform === 'epic') {
+				debug('Epic platform detected, ensuring logged in');
+				await epicService.ensureLoggedIn();
+			}
 
-		debug('Invoking launch_modded command');
-		await invoke('launch_modded', {
-			gameExe: gameExePath,
-			profilePath: profile.path,
-			bepinexDll: bepinexDll,
-			dotnetDir: dotnetDir,
-			coreclrPath: coreClr,
-			platform: settings.game_platform || 'steam'
-		});
+			debug('Invoking launch_modded command');
+			await invoke('launch_modded', {
+				gameExe: gameExePath,
+				profileId: profile.id,
+				profilePath: profile.path,
+				bepinexDll: bepinexDll,
+				dotnetDir: dotnetDir,
+				coreclrPath: coreClr,
+				platform: settings.game_platform || 'steam'
+			});
+			info(`Profile ${profile.name} launched successfully`);
 
-		gameState.setRunningProfile(profile.id);
-		info(`Profile ${profile.name} launched successfully`);
-
-		if (settings.close_on_launch) {
-			debug('Closing window on launch');
-			const { getCurrentWindow } = await import('@tauri-apps/api/window');
-			getCurrentWindow().close();
+			if (settings.close_on_launch) {
+				debug('Closing window on launch');
+				const { getCurrentWindow } = await import('@tauri-apps/api/window');
+				getCurrentWindow().close();
+			}
+		} finally {
+			this.launchInFlight = false;
 		}
 	}
 
@@ -105,9 +115,7 @@ class LaunchService {
 
 		// Launch the game
 		info('Launching Xbox game...');
-		await invoke('launch_xbox', { appId });
-
-		gameState.setRunningProfile(profile.id);
+		await invoke('launch_xbox', { appId, profileId: profile.id });
 		info(`Profile ${profile.name} launched successfully (Xbox)`);
 
 		const settings = await settingsService.getSettings();
@@ -119,34 +127,42 @@ class LaunchService {
 	}
 
 	async launchVanilla(): Promise<void> {
-		info('Launching vanilla Among Us');
-		const settings = await settingsService.getSettings();
+		if (this.launchInFlight) throw new Error('A launch is already in progress');
+		this.launchInFlight = true;
+		try {
+			info('Launching vanilla Among Us');
+			const settings = await settingsService.getSettings();
 
-		if (!settings.among_us_path) {
-			logError('Among Us path not configured');
-			throw new Error('Among Us path not configured');
+			if (!settings.among_us_path) {
+				logError('Among Us path not configured');
+				throw new Error('Among Us path not configured');
+			}
+			if (!settings.allow_multi_instance_launch && gameState.running) {
+				throw new Error('An Among Us instance is already running');
+			}
+
+			// Xbox platform uses a different launch flow
+			if (settings.game_platform === 'xbox') {
+				await this.launchXboxVanilla(settings.among_us_path);
+				return;
+			}
+
+			const gameExePath = await join(settings.among_us_path, 'Among Us.exe');
+			const gameExists = await exists(gameExePath);
+			if (!gameExists) {
+				logError(`Among Us.exe not found at: ${gameExePath}`);
+				throw new Error('Among Us.exe not found at configured path');
+			}
+
+			debug('Invoking launch_vanilla command');
+			await invoke('launch_vanilla', {
+				gameExe: gameExePath,
+				platform: settings.game_platform || 'steam'
+			});
+			info('Vanilla game launched successfully');
+		} finally {
+			this.launchInFlight = false;
 		}
-
-		// Xbox platform uses a different launch flow
-		if (settings.game_platform === 'xbox') {
-			await this.launchXboxVanilla(settings.among_us_path);
-			return;
-		}
-
-		const gameExePath = await join(settings.among_us_path, 'Among Us.exe');
-		const gameExists = await exists(gameExePath);
-		if (!gameExists) {
-			logError(`Among Us.exe not found at: ${gameExePath}`);
-			throw new Error('Among Us.exe not found at configured path');
-		}
-
-		debug('Invoking launch_vanilla command');
-		await invoke('launch_vanilla', {
-			gameExe: gameExePath,
-			platform: settings.game_platform || 'steam'
-		});
-		gameState.setRunningProfile(null);
-		info('Vanilla game launched successfully');
 	}
 
 	/**
@@ -164,9 +180,7 @@ class LaunchService {
 
 		// Launch the game
 		info('Launching Xbox game (vanilla)...');
-		await invoke('launch_xbox', { appId });
-
-		gameState.setRunningProfile(null);
+		await invoke('launch_xbox', { appId, profileId: null });
 		info('Vanilla game launched successfully (Xbox)');
 	}
 }
