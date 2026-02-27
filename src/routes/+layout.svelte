@@ -14,6 +14,11 @@
 	import { updateState } from '$lib/features/updates/update-state.svelte';
 	import { onMount } from 'svelte';
 	import { info, warn } from '@tauri-apps/plugin-log';
+	import {
+		diskFilesQueryKey,
+		profilesQueryKey,
+		unifiedModsQueryKey
+	} from '$lib/features/profiles/profile-keys';
 
 	let { children } = $props();
 	let dialogOpen = $state(false);
@@ -22,7 +27,7 @@
 	// Register the invalidation callback so game-state can trigger query invalidation
 	// without importing queryClient directly
 	registerProfilesInvalidateCallback(() => {
-		queryClient.invalidateQueries({ queryKey: ['profiles'] });
+		queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 	});
 
 	onMount(() => {
@@ -61,9 +66,9 @@
 						// Invalidate profiles list, unified-mods, and disk-files queries
 						// since any profile's plugins dir could have changed
 						await Promise.all([
-							queryClient.invalidateQueries({ queryKey: ['profiles'] }),
-							queryClient.invalidateQueries({ queryKey: ['unified-mods'] }),
-							queryClient.invalidateQueries({ queryKey: ['disk-files'] })
+							queryClient.invalidateQueries({ queryKey: profilesQueryKey }),
+							queryClient.invalidateQueries({ queryKey: unifiedModsQueryKey }),
+							queryClient.invalidateQueries({ queryKey: diskFilesQueryKey })
 						]);
 						info('Profiles, unified-mods, and disk-files queries invalidated');
 					}, 300);

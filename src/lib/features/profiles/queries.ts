@@ -1,31 +1,38 @@
 import { queryOptions } from '@tanstack/svelte-query';
 import { profileService } from './profile-service';
+import {
+	profileDiskFilesKey,
+	profileUnifiedModsKey,
+	profilesActiveQueryKey,
+	profilesHasAnyQueryKey,
+	profilesQueryKey
+} from './profile-keys';
 
 export const profileQueries = {
 	all: () =>
 		queryOptions({
-			queryKey: ['profiles'] as const,
+			queryKey: profilesQueryKey,
 			queryFn: () => profileService.getProfiles()
 		}),
 	active: () =>
 		queryOptions({
-			queryKey: ['profiles', 'active'] as const,
+			queryKey: profilesActiveQueryKey,
 			queryFn: () => profileService.getActiveProfile()
 		}),
 	hasAny: () =>
 		queryOptions({
-			queryKey: ['profiles', 'hasAny'] as const,
+			queryKey: profilesHasAnyQueryKey,
 			queryFn: () => profileService.getProfiles().then((profiles) => profiles.length > 0)
 		}),
 	diskFiles: (profilePath: string) =>
 		queryOptions({
-			queryKey: ['disk-files', profilePath] as const,
+			queryKey: profileDiskFilesKey(profilePath),
 			queryFn: () => profileService.getModFiles(profilePath),
 			enabled: !!profilePath
 		}),
 	unifiedMods: (profileId: string) =>
 		queryOptions({
-			queryKey: ['unified-mods', profileId] as const,
+			queryKey: profileUnifiedModsKey(profileId),
 			queryFn: () => profileService.getUnifiedMods(profileId),
 			enabled: !!profileId
 		})

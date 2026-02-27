@@ -9,6 +9,17 @@ import {
 	type ModDependency
 } from './schema';
 import { modInstallService } from '$lib/features/profiles/mod-install-service';
+import {
+	modsByIdKey,
+	modsExploreKey,
+	modsInfoKey,
+	modsListKey,
+	modsTotalKey,
+	modsTrendingKey,
+	modsVersionInfoKey,
+	modsVersionsKey,
+	resolvedDepsKey
+} from './mod-keys';
 
 // Pre-create validators (avoid recreating on every call)
 const ModArrayValidator = type(ModResponse.array());
@@ -16,7 +27,7 @@ const ModArrayValidator = type(ModResponse.array());
 export const modQueries = {
 	latest: (limit = 20, offset = 0) =>
 		queryOptions({
-			queryKey: ['mods', 'list', { limit, offset }] as const,
+			queryKey: modsListKey(limit, offset),
 			queryFn: () => apiFetch(`/api/v2/mods?limit=${limit}&offset=${offset}`, ModArrayValidator)
 		}),
 
@@ -25,7 +36,7 @@ export const modQueries = {
 		const params = `limit=${limit}&offset=${offset}`;
 
 		return queryOptions({
-			queryKey: ['mods', 'explore', q, limit, offset, sort] as const,
+			queryKey: modsExploreKey(q, limit, offset, sort),
 			queryFn: () => {
 				if (q) {
 					return apiFetch(
@@ -45,39 +56,39 @@ export const modQueries = {
 
 	total: () =>
 		queryOptions({
-			queryKey: ['mods', 'total'] as const,
+			queryKey: modsTotalKey(),
 			queryFn: () => apiFetch('/api/v2/mods/total', type('number'))
 		}),
 
 	trending: () =>
 		queryOptions({
-			queryKey: ['mods', 'trending'] as const,
+			queryKey: modsTrendingKey(),
 			queryFn: () => apiFetch('/api/v2/mods/trending', ModArrayValidator)
 		}),
 
 	info: (id: string) =>
 		queryOptions({
-			queryKey: ['mods', 'info', id] as const,
+			queryKey: modsInfoKey(id),
 			queryFn: () => apiFetch(`/api/v2/mods/${id}/info`, ModInfoResponse),
 			enabled: !!id
 		}),
 
 	byId: (id: string) =>
 		queryOptions({
-			queryKey: ['mods', 'by-id', id] as const,
+			queryKey: modsByIdKey(id),
 			queryFn: () => apiFetch(`/api/v2/mods/${id}`, ModResponse),
 			enabled: !!id
 		}),
 
 	versions: (modId: string) =>
 		queryOptions({
-			queryKey: ['mods', 'versions', modId] as const,
+			queryKey: modsVersionsKey(modId),
 			queryFn: () => apiFetch(`/api/v2/mods/${modId}/versions`, type(ModVersion.array()))
 		}),
 
 	versionInfo: (modId: string, version: string) =>
 		queryOptions({
-			queryKey: ['mods', 'versionInfo', modId, version] as const,
+			queryKey: modsVersionInfoKey(modId, version),
 			queryFn: () => apiFetch(`/api/v2/mods/${modId}/versions/${version}/info`, ModVersionInfo),
 			enabled: !!modId && !!version
 		}),
@@ -89,7 +100,7 @@ export const modQueries = {
 			.join(',');
 
 		return queryOptions({
-			queryKey: ['resolved-deps', queryKey] as const,
+			queryKey: resolvedDepsKey(queryKey),
 			queryFn: () => modInstallService.resolveDependencies(dependencies),
 			enabled: dependencies.length > 0
 		});

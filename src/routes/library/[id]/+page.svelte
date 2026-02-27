@@ -5,12 +5,13 @@
 
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { profileMutations } from '$lib/features/profiles/mutations';
-	import { modQueries } from '$lib/features/mods/queries';
-	import { gameState } from '$lib/features/profiles/game-state.svelte';
-	import { formatPlayTime } from '$lib/utils';
-	import { showError } from '$lib/utils/toast';
-	import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
-	import type { Mod } from '$lib/features/mods/schema';
+import { modQueries } from '$lib/features/mods/queries';
+import { gameState } from '$lib/features/profiles/game-state.svelte';
+import { formatPlayTime } from '$lib/utils';
+import { showError } from '$lib/utils/toast';
+import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
+import type { Mod } from '$lib/features/mods/schema';
+import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
 	import {
 		createProfileDetailController,
 		profileDetailRuntime
@@ -52,7 +53,7 @@
 		launchProfile: profileDetailRuntime.launchProfile,
 		updateLastLaunched: (id) => updateLastLaunched.mutateAsync(id),
 		deleteProfile: (id) => deleteProfile.mutateAsync(id),
-		removeProfileQueries: (id) => queryClient.removeQueries({ queryKey: ['unified-mods', id] }),
+		removeProfileQueries: (id) => queryClient.removeQueries({ queryKey: profileUnifiedModsKey(id) }),
 		renameProfile: (id, newName) => renameProfile.mutateAsync({ profileId: id, newName }),
 		deleteUnifiedMod: (id, mod) => deleteUnifiedMod.mutateAsync({ profileId: id, mod })
 	});

@@ -21,6 +21,7 @@
 	import { profileMutations } from '$lib/features/profiles/mutations';
 	import type { Profile } from '$lib/features/profiles/schema';
 	import { showError, showSuccess } from '$lib/utils/toast';
+	import { profileUnifiedModsKey, profilesQueryKey } from '$lib/features/profiles/profile-keys';
 
 	const queryClient = useQueryClient();
 	const profilesQuery = createQuery(() => profileQueries.all());
@@ -45,9 +46,9 @@
 	}
 
 	async function handleLaunchProfile(profile: Profile) {
-		const previousProfiles = queryClient.getQueryData<Profile[]>(['profiles']);
+		const previousProfiles = queryClient.getQueryData<Profile[]>(profilesQueryKey);
 
-		queryClient.setQueryData(['profiles'], (old = []) =>
+		queryClient.setQueryData(profilesQueryKey, (old = []) =>
 			(old as Profile[]).map((p) =>
 				p.id === profile.id ? { ...p, last_launched_at: Date.now() } : p
 			)
@@ -57,7 +58,7 @@
 			await launchService.launchProfile(profile);
 			await updateLastLaunched.mutateAsync(profile.id);
 		} catch (e) {
-			queryClient.setQueryData(['profiles'], previousProfiles);
+			queryClient.setQueryData(profilesQueryKey, previousProfiles);
 			showError(e);
 		}
 	}
@@ -77,20 +78,20 @@
 		const profileName = profileToDelete.name;
 		deleteDialogOpen = false;
 
-		const previousProfiles = queryClient.getQueryData<Profile[]>(['profiles']);
+		const previousProfiles = queryClient.getQueryData<Profile[]>(profilesQueryKey);
 
 		// Optimistic update
-		queryClient.setQueryData(['profiles'], (old = []) =>
+		queryClient.setQueryData(profilesQueryKey, (old = []) =>
 			(old as Profile[]).filter((p) => p.id !== profileId)
 		);
 
 		try {
 			await deleteProfile.mutateAsync(profileId);
 			// Also remove any cached unified-mods for this profile
-			queryClient.removeQueries({ queryKey: ['unified-mods', profileId] });
+			queryClient.removeQueries({ queryKey: profileUnifiedModsKey(profileId) });
 			showSuccess(`Profile "${profileName}" deleted`);
 		} catch (e) {
-			queryClient.setQueryData(['profiles'], previousProfiles);
+			queryClient.setQueryData(profilesQueryKey, previousProfiles);
 			showError(e);
 		} finally {
 			profileToDelete = null;

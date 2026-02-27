@@ -19,6 +19,7 @@
 	import { modQueries } from '../queries';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { profileMutations } from '$lib/features/profiles/mutations';
+	import { profileDiskFilesKey } from '$lib/features/profiles/profile-keys';
 	import { showError, showSuccess } from '$lib/utils/toast';
 	import type { UnifiedMod, Profile } from '$lib/features/profiles/schema';
 	import { watch } from 'runed';
@@ -51,7 +52,7 @@
 	const diskFilesQuery = createQuery(() => {
 		if (!profile?.path) {
 			return {
-				queryKey: ['disk-files', ''] as const,
+				queryKey: profileDiskFilesKey(''),
 				queryFn: async () => [],
 				enabled: false
 			};
