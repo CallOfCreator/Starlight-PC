@@ -13,6 +13,12 @@ pub struct GameStatePayload {
     pub running: bool,
 }
 
+fn reap_process(mut child: Child) {
+    if let Err(e) = child.wait() {
+        warn!("Failed to reap game process: {}", e);
+    }
+}
+
 /// Monitors the game process and emits state changes.
 fn monitor_game_process<R: Runtime>(app: AppHandle<R>, process_id: u32) {
     std::thread::spawn(move || {
@@ -35,7 +41,8 @@ fn monitor_game_process<R: Runtime>(app: AppHandle<R>, process_id: u32) {
             match guard[index].try_wait() {
                 Ok(Some(status)) => {
                     info!("Game process exited with status: {:?}", status);
-                    guard.swap_remove(index);
+                    let child = guard.swap_remove(index);
+                    reap_process(child);
                     if guard.is_empty() {
                         let _ = app.emit("game-state-changed", GameStatePayload { running: false });
                         info!("Game state changed to not running");
@@ -45,7 +52,8 @@ fn monitor_game_process<R: Runtime>(app: AppHandle<R>, process_id: u32) {
                 Ok(None) => {}
                 Err(e) => {
                     warn!("Failed to check game process state: {}", e);
-                    guard.swap_remove(index);
+                    let child = guard.swap_remove(index);
+                    reap_process(child);
                     if guard.is_empty() {
                         let _ = app.emit("game-state-changed", GameStatePayload { running: false });
                         info!("Game state changed to not running");
@@ -75,14 +83,23 @@ fn launch<R: Runtime>(app: AppHandle<R>, mut cmd: Command) -> Result<(), String>
     {
         let mut guard = GAME_PROCESSES.lock().unwrap();
 
-        guard.retain_mut(|child| match child.try_wait() {
-            Ok(Some(_)) => false,
-            Ok(None) => true,
-            Err(e) => {
-                warn!("Failed to check tracked game process state: {}", e);
-                false
+        let mut i = 0;
+        while i < guard.len() {
+            match guard[i].try_wait() {
+                Ok(Some(_)) => {
+                    let child = guard.swap_remove(i);
+                    reap_process(child);
+                }
+                Ok(None) => {
+                    i += 1;
+                }
+                Err(e) => {
+                    warn!("Failed to check tracked game process state: {}", e);
+                    let child = guard.swap_remove(i);
+                    reap_process(child);
+                }
             }
-        });
+        }
 
         info!("Launching game process");
         let child = cmd.spawn().map_err(|e| {
