@@ -16,7 +16,9 @@
 	let { title, saved = false, children, class: className }: SettingsSectionProps = $props();
 </script>
 
-<section class={cn('rounded-xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm', className)}>
+<section
+	class={cn('rounded-xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm', className)}
+>
 	<header class="mb-4 flex items-center justify-between">
 		<h2 class="text-lg font-semibold tracking-tight">{title}</h2>
 		{#if saved}
