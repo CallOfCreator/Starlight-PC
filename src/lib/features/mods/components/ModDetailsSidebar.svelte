@@ -8,13 +8,7 @@
 	import InstallPanel from './InstallPanel.svelte';
 	import { ImageOff, Download, Clock } from '@jis3r/icons';
 	import { openUrl } from '@tauri-apps/plugin-opener';
-	import {
-		ExternalLink,
-		ChevronDown,
-		ChevronUp,
-		Trash2,
-		LoaderCircle
-	} from '@lucide/svelte';
+	import { ExternalLink, ChevronDown, ChevronUp, Trash2, LoaderCircle } from '@lucide/svelte';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { modQueries } from '../queries';
 	import { profileQueries } from '$lib/features/profiles/queries';
@@ -170,7 +164,6 @@
 			isRemoving = false;
 		}
 	}
-
 </script>
 
 <div class="flex h-full flex-col">

@@ -16,8 +16,13 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 
-	let { isPending, profiles, onCreateProfile, onLaunchProfile, onDeleteProfile }: LibraryProfilesSectionProps =
-		$props();
+	let {
+		isPending,
+		profiles,
+		onCreateProfile,
+		onLaunchProfile,
+		onDeleteProfile
+	}: LibraryProfilesSectionProps = $props();
 </script>
 
 <div>
@@ -42,7 +47,9 @@
 		<div class="rounded-lg border border-dashed border-border p-12 text-center">
 			<Library class="mx-auto mb-3 h-12 w-12 text-muted-foreground/50" />
 			<h3 class="mb-1 text-lg font-semibold">No profiles yet</h3>
-			<p class="mb-4 text-sm text-muted-foreground">Create a profile to manage your modded installations.</p>
+			<p class="mb-4 text-sm text-muted-foreground">
+				Create a profile to manage your modded installations.
+			</p>
 			<Button onclick={onCreateProfile}>
 				<Plus class="mr-2 h-4 w-4" />
 				Create Profile

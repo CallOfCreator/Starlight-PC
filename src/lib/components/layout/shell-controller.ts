@@ -14,7 +14,10 @@ export function canLaunchProfile(activeProfile: Profile | null, running: boolean
 	return !running && !!activeProfile;
 }
 
-export function shouldFinalizeSidebarTransition(event: TransitionEvent, sidebarOpen: boolean): boolean {
+export function shouldFinalizeSidebarTransition(
+	event: TransitionEvent,
+	sidebarOpen: boolean
+): boolean {
 	return event.propertyName === 'width' && !sidebarOpen;
 }
 

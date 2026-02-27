@@ -103,7 +103,12 @@
 							<h3 class="truncate font-bold">{mod.file}</h3>
 							<p class="text-sm text-muted-foreground">Custom mod (unmanaged)</p>
 						</div>
-						<Button size="sm" variant="destructive" onclick={() => onDeleteMod(mod)} disabled={isDisabled}>
+						<Button
+							size="sm"
+							variant="destructive"
+							onclick={() => onDeleteMod(mod)}
+							disabled={isDisabled}
+						>
 							<Trash2 class="size-4" />
 						</Button>
 					</div>

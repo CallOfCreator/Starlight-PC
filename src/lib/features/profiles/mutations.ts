@@ -1,23 +1,19 @@
 import type { QueryClient } from '@tanstack/svelte-query';
-import { profileService } from './profile-service';
+import { profileWorkflowService } from './profile-workflow-service';
 import { modInstallService } from './mod-install-service';
 import type { UnifiedMod } from './schema';
-import {
-	profileDiskFilesKey,
-	profilesActiveQueryKey,
-	profilesQueryKey
-} from './profile-keys';
+import { profileDiskFilesKey, profilesActiveQueryKey, profilesQueryKey } from './profile-keys';
 
 export const profileMutations = {
 	create: (queryClient: QueryClient) => ({
-		mutationFn: (name: string) => profileService.createProfile(name),
+		mutationFn: (name: string) => profileWorkflowService.createProfile(name),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 		}
 	}),
 
 	delete: (queryClient: QueryClient) => ({
-		mutationFn: (profileId: string) => profileService.deleteProfile(profileId),
+		mutationFn: (profileId: string) => profileWorkflowService.deleteProfile(profileId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 		}
@@ -25,7 +21,7 @@ export const profileMutations = {
 
 	rename: (queryClient: QueryClient) => ({
 		mutationFn: (args: { profileId: string; newName: string }) =>
-			profileService.renameProfile(args.profileId, args.newName),
+			profileWorkflowService.renameProfile(args.profileId, args.newName),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 		}
@@ -33,7 +29,7 @@ export const profileMutations = {
 
 	addMod: (queryClient: QueryClient) => ({
 		mutationFn: (args: { profileId: string; modId: string; version: string; file: string }) =>
-			profileService.addModToProfile(args.profileId, args.modId, args.version, args.file),
+			profileWorkflowService.addModToProfile(args.profileId, args.modId, args.version, args.file),
 		onSuccess: async (_data: void, args: { profileId: string }) => {
 			const profiles = queryClient.getQueryData<{ id: string; path: string }[]>(profilesQueryKey);
 			const profile = profiles?.find((p) => p.id === args.profileId);
@@ -46,7 +42,7 @@ export const profileMutations = {
 
 	removeMod: (queryClient: QueryClient) => ({
 		mutationFn: (args: { profileId: string; modId: string }) =>
-			profileService.removeModFromProfile(args.profileId, args.modId),
+			profileWorkflowService.removeModFromProfile(args.profileId, args.modId),
 		onSuccess: async (_data: void, args: { profileId: string }) => {
 			const profiles = queryClient.getQueryData<{ id: string; path: string }[]>(profilesQueryKey);
 			const profile = profiles?.find((p) => p.id === args.profileId);
@@ -59,7 +55,7 @@ export const profileMutations = {
 
 	deleteUnifiedMod: (queryClient: QueryClient) => ({
 		mutationFn: (args: { profileId: string; mod: UnifiedMod }) =>
-			profileService.deleteUnifiedMod(args.profileId, args.mod),
+			profileWorkflowService.deleteUnifiedMod(args.profileId, args.mod),
 		onSuccess: async (_data: void, args: { profileId: string }) => {
 			const profiles = queryClient.getQueryData<{ id: string; path: string }[]>(profilesQueryKey);
 			const profile = profiles?.find((p) => p.id === args.profileId);
@@ -71,7 +67,7 @@ export const profileMutations = {
 	}),
 
 	cleanupMissingMods: (queryClient: QueryClient) => ({
-		mutationFn: (profileId: string) => profileService.cleanupMissingMods(profileId),
+		mutationFn: (profileId: string) => profileWorkflowService.cleanupMissingMods(profileId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 		}
@@ -79,7 +75,7 @@ export const profileMutations = {
 
 	updatePlayTime: (queryClient: QueryClient) => ({
 		mutationFn: (args: { profileId: string; durationMs: number }) =>
-			profileService.addPlayTime(args.profileId, args.durationMs),
+			profileWorkflowService.addPlayTime(args.profileId, args.durationMs),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 		}
@@ -87,14 +83,14 @@ export const profileMutations = {
 
 	retryBepInExInstall: (queryClient: QueryClient) => ({
 		mutationFn: (args: { profileId: string; profilePath: string }) =>
-			profileService.retryBepInExInstall(args.profileId, args.profilePath),
+			profileWorkflowService.retryBepInExInstall(args.profileId, args.profilePath),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 		}
 	}),
 
 	updateLastLaunched: (queryClient: QueryClient) => ({
-		mutationFn: (profileId: string) => profileService.updateLastLaunched(profileId),
+		mutationFn: (profileId: string) => profileWorkflowService.updateLastLaunched(profileId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: profilesQueryKey });
 			queryClient.invalidateQueries({ queryKey: profilesActiveQueryKey });
@@ -109,7 +105,7 @@ export const profileMutations = {
 		}) => {
 			const results = await modInstallService.installModsToProfile(args.mods, args.profilePath);
 			for (const result of results) {
-				await profileService.addModToProfile(
+				await profileWorkflowService.addModToProfile(
 					args.profileId,
 					result.modId,
 					result.version,

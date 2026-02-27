@@ -9,7 +9,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { settingsService } from '$lib/features/settings/settings-service';
 	import { registerProfilesInvalidateCallback } from '$lib/features/profiles/game-state.svelte';
-	import { profileService } from '$lib/features/profiles/profile-service';
+	import { profileWorkflowService } from '$lib/features/profiles/profile-workflow-service';
 	import { watchDirectory } from '$lib/utils/file-watcher';
 	import { updateState } from '$lib/features/updates/update-state.svelte';
 	import { onMount } from 'svelte';
@@ -58,7 +58,7 @@
 			// Debounced to avoid rapid-fire invalidations when our own mutations write
 			// metadata.json (the mutation already invalidates explicitly).
 			try {
-				const profilesDir = await profileService.getProfilesDir();
+				const profilesDir = await profileWorkflowService.getProfilesDir();
 				unwatchProfiles = await watchDirectory(profilesDir, () => {
 					clearTimeout(debounceTimer);
 					debounceTimer = setTimeout(async () => {

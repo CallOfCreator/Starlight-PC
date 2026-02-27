@@ -22,7 +22,9 @@
 
 <section>
 	<div class="mb-6 flex items-center gap-3">
-		<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+		<div
+			class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20"
+		>
 			<TrendingUp class="h-6 w-6 text-primary" />
 		</div>
 		<div class="space-y-0.5">

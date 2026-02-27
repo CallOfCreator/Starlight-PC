@@ -6,6 +6,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { modQueries } from '$lib/features/mods/queries';
+	import { mapModsById } from '$lib/features/mods/ui/mod-query-controller';
 	import type { Profile } from '../schema';
 	import type { Mod } from '$lib/features/mods/schema';
 	import { gameState } from '../game-state.svelte';
@@ -91,12 +92,7 @@
 	const modIds = $derived(profile.mods.map((m) => m.mod_id));
 	const modsQueries = $derived(modIds.map((id) => createQuery(() => modQueries.byId(id))));
 	const modsMap = $derived(
-		new Map(
-			modsQueries
-				.map((q) => q.data)
-				.filter((m): m is Mod => m !== undefined)
-				.map((m) => [m.id, m])
-		)
+		mapModsById(modsQueries.map((query) => query.data) as Array<Mod | undefined>)
 	);
 
 	const diskFilesQuery = createQuery(() => profileQueries.diskFiles(profile.path));

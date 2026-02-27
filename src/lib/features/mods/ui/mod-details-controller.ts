@@ -11,7 +11,9 @@ export function safeParseMarkdown(content: string | undefined): string {
 	}
 }
 
-export function pickDefaultVersion(versions: { version: string; created_at: number }[]): string | null {
+export function pickDefaultVersion(
+	versions: { version: string; created_at: number }[]
+): string | null {
 	if (versions.length === 0) return null;
 	return [...versions].sort((a, b) => b.created_at - a.created_at)[0].version;
 }

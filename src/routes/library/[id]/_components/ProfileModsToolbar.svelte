@@ -11,8 +11,11 @@
 	import { Button } from '$lib/components/ui/button';
 	import { SearchIcon, X, Plus } from '@lucide/svelte';
 
-	let { searchPlaceholder, searchInput = $bindable(), onInstallMods }: ProfileModsToolbarProps =
-		$props();
+	let {
+		searchPlaceholder,
+		searchInput = $bindable(),
+		onInstallMods
+	}: ProfileModsToolbarProps = $props();
 </script>
 
 <div class="mx-auto mb-5 flex w-full max-w-3xl justify-center gap-3">

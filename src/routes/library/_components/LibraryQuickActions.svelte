@@ -21,7 +21,9 @@
 		>
 			<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
 				{#if isLaunchingVanilla}
-					<div class="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+					<div
+						class="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"
+					></div>
 				{:else}
 					<Ghost class="h-5 w-5 text-primary" />
 				{/if}

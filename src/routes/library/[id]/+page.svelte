@@ -5,13 +5,15 @@
 
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { profileMutations } from '$lib/features/profiles/mutations';
-import { modQueries } from '$lib/features/mods/queries';
-import { gameState } from '$lib/features/profiles/game-state.svelte';
-import { formatPlayTime } from '$lib/utils';
-import { showError } from '$lib/utils/toast';
-import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
-import type { Mod } from '$lib/features/mods/schema';
-import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
+	import { modQueries } from '$lib/features/mods/queries';
+	import { gameState } from '$lib/features/profiles/game-state.svelte';
+	import { formatPlayTime } from '$lib/utils';
+	import { showError } from '$lib/utils/toast';
+	import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
+	import type { Mod } from '$lib/features/mods/schema';
+	import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
+	import { mapModsById } from '$lib/features/mods/ui/mod-query-controller';
+	import { findProfileById } from '$lib/features/profiles/ui/profile-query-controller';
 	import {
 		createProfileDetailController,
 		profileDetailRuntime
@@ -40,9 +42,7 @@ import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
 		enabled: !!profileId
 	}));
 
-	const profile = $derived(
-		(profilesQuery.data as Profile[] | undefined)?.find((candidate) => candidate.id === profileId)
-	);
+	const profile = $derived(findProfileById(profilesQuery.data as Profile[] | undefined, profileId));
 
 	const updateLastLaunched = createMutation(() => profileMutations.updateLastLaunched(queryClient));
 	const deleteProfile = createMutation(() => profileMutations.delete(queryClient));
@@ -53,7 +53,8 @@ import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
 		launchProfile: profileDetailRuntime.launchProfile,
 		updateLastLaunched: (id) => updateLastLaunched.mutateAsync(id),
 		deleteProfile: (id) => deleteProfile.mutateAsync(id),
-		removeProfileQueries: (id) => queryClient.removeQueries({ queryKey: profileUnifiedModsKey(id) }),
+		removeProfileQueries: (id) =>
+			queryClient.removeQueries({ queryKey: profileUnifiedModsKey(id) }),
 		renameProfile: (id, newName) => renameProfile.mutateAsync({ profileId: id, newName }),
 		deleteUnifiedMod: (id, mod) => deleteUnifiedMod.mutateAsync({ profileId: id, mod })
 	});
@@ -61,12 +62,7 @@ import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
 	const modIds = $derived(profile?.mods.map((mod) => mod.mod_id) ?? []);
 	const modsQueries = $derived(modIds.map((id) => createQuery(() => modQueries.byId(id))));
 	const modsMap = $derived(
-		new Map(
-			modsQueries
-				.map((query) => query.data)
-				.filter((mod): mod is Mod => mod !== undefined)
-				.map((mod) => [mod.id, mod])
-		)
+		mapModsById(modsQueries.map((query) => query.data) as Array<Mod | undefined>)
 	);
 
 	let searchInput = $state('');
@@ -93,8 +89,12 @@ import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
 		const unified = unifiedModsQuery.data ?? [];
 		return filterProfileMods(unified, modsMap, debouncedSearch.current);
 	});
-	const displayedMods = $derived(paginateProfileMods(filteredMods, currentPage, PROFILE_MODS_PAGE_SIZE));
-	const pagination = $derived(getProfileModsPagination(filteredMods.length, currentPage, PROFILE_MODS_PAGE_SIZE));
+	const displayedMods = $derived(
+		paginateProfileMods(filteredMods, currentPage, PROFILE_MODS_PAGE_SIZE)
+	);
+	const pagination = $derived(
+		getProfileModsPagination(filteredMods.length, currentPage, PROFILE_MODS_PAGE_SIZE)
+	);
 
 	const isSearching = $derived(debouncedSearch.current.trim().length > 0);
 	const searchPlaceholder = $derived(
@@ -264,7 +264,8 @@ import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
 		bind:newProfileName
 		{renameError}
 		renamePending={renameProfile.isPending}
-		onNewProfileNameInput={(event) => (newProfileName = (event.currentTarget as HTMLInputElement).value)}
+		onNewProfileNameInput={(event) =>
+			(newProfileName = (event.currentTarget as HTMLInputElement).value)}
 		onCancelDeleteProfile={() => (deleteDialogOpen = false)}
 		onConfirmDeleteProfile={handleDeleteProfile}
 		onCancelRename={() => (renameDialogOpen = false)}

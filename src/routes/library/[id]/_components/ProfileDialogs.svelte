@@ -59,8 +59,8 @@
 		<AlertDialogHeader>
 			<AlertDialogTitle>Delete Profile?</AlertDialogTitle>
 			<AlertDialogDescription>
-				Are you sure you want to delete <strong>{profile?.name}</strong>? This action cannot be undone and
-				will delete all files associated with this profile.
+				Are you sure you want to delete <strong>{profile?.name}</strong>? This action cannot be
+				undone and will delete all files associated with this profile.
 			</AlertDialogDescription>
 		</AlertDialogHeader>
 		<AlertDialogFooter>
@@ -98,7 +98,9 @@
 			<Button variant="outline" onclick={onCancelRename}>Cancel</Button>
 			<Button onclick={onConfirmRename} disabled={renamePending || !newProfileName.trim()}>
 				{#if renamePending}
-					<div class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+					<div
+						class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+					></div>
 					Renaming...
 				{:else}
 					Rename

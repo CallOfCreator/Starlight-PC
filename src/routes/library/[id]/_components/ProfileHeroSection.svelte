@@ -72,7 +72,9 @@
 		<div class="flex flex-wrap items-center gap-3 pt-2">
 			<Button size="lg" class="gap-2" onclick={onLaunch} disabled={isDisabled || isLaunching}>
 				{#if isLaunching}
-					<div class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+					<div
+						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+					></div>
 					Launching...
 				{:else}
 					<Play class="size-5 fill-current" />
@@ -85,7 +87,13 @@
 				<span>Open Folder</span>
 			</Button>
 
-			<Button size="lg" variant="destructive" class="gap-2" onclick={onOpenDelete} disabled={isDisabled}>
+			<Button
+				size="lg"
+				variant="destructive"
+				class="gap-2"
+				onclick={onOpenDelete}
+				disabled={isDisabled}
+			>
 				<Trash2 class="size-5" />
 				<span>Delete</span>
 			</Button>

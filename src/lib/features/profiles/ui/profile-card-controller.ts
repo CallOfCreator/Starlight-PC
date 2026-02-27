@@ -26,7 +26,10 @@ export function buildUnifiedMods(profile: Profile, diskFiles: string[]): Unified
 	return unified;
 }
 
-export function buildProfileModChips(unifiedMods: UnifiedMod[], modsMap: Map<string, Mod>): ProfileModChip[] {
+export function buildProfileModChips(
+	unifiedMods: UnifiedMod[],
+	modsMap: Map<string, Mod>
+): ProfileModChip[] {
 	return unifiedMods.map((mod) => {
 		if (mod.source === 'managed') {
 			const modInfo = modsMap.get(mod.mod_id);
@@ -36,7 +39,11 @@ export function buildProfileModChips(unifiedMods: UnifiedMod[], modsMap: Map<str
 	});
 }
 
-export function findUnifiedModByChip(chipId: string, source: 'managed' | 'custom', unifiedMods: UnifiedMod[]) {
+export function findUnifiedModByChip(
+	chipId: string,
+	source: 'managed' | 'custom',
+	unifiedMods: UnifiedMod[]
+) {
 	return unifiedMods.find((mod) =>
 		source === 'managed' ? mod.source === 'managed' && mod.mod_id === chipId : mod.file === chipId
 	);
