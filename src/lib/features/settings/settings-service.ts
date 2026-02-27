@@ -35,7 +35,10 @@ class SettingsService {
 			if (onProgress) {
 				unlisten = await listen<BepInExProgress>('bepinex-progress', (e) => onProgress(e.payload));
 			}
-			await invoke('download_bepinex_to_cache', { url, cachePath: await this.getBepInExCachePath() });
+			await invoke('download_bepinex_to_cache', {
+				url,
+				cachePath: await this.getBepInExCachePath()
+			});
 		} finally {
 			unlisten?.();
 		}
