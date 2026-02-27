@@ -10,7 +10,6 @@ interface GameStatePayload {
 class GameRuntimeStateStore {
 	#running = $state(false);
 	#runningProfileId = $state<string | null>(null);
-	#runningProfileInstanceCount = $state(0);
 	#sessionStartTime = $state<number | null>(null);
 	#currentTime = $state(Date.now());
 	#unlisten: UnlistenFn | null = null;
@@ -65,7 +64,6 @@ class GameRuntimeStateStore {
 		this.#unlisten = await listen<GameStatePayload>('game-state-changed', async (event) => {
 			if (this.#running && !event.payload.running) {
 				await this.finalizeSession();
-				this.#runningProfileInstanceCount = 0;
 				this.#runningProfileId = null;
 			}
 
@@ -80,14 +78,12 @@ class GameRuntimeStateStore {
 	async setRunningProfile(profileId: string | null): Promise<void> {
 		if (!profileId) {
 			await this.finalizeSession();
-			this.#runningProfileInstanceCount = 0;
 			this.#runningProfileId = null;
 			this.#running = false;
 			return;
 		}
 
 		if (this.#running && this.#runningProfileId === profileId) {
-			this.#runningProfileInstanceCount += 1;
 			return;
 		}
 
@@ -97,7 +93,6 @@ class GameRuntimeStateStore {
 
 		this.#running = true;
 		this.#runningProfileId = profileId;
-		this.#runningProfileInstanceCount = 1;
 		this.startTimer();
 	}
 
