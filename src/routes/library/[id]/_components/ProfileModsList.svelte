@@ -57,7 +57,7 @@
 	}: ProfileModsListProps = $props();
 </script>
 
-<main class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+<main class="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
 	{#if isPending}
 		{#each { length: 4 }, i (i)}
 			<Card.Root class="p-3">
