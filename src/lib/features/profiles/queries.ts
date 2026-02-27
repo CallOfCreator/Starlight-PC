@@ -37,10 +37,10 @@ export const profileQueries = {
 			queryFn: () => profileWorkflowService.getUnifiedMods(profileId),
 			enabled: !!profileId
 		}),
-	log: (profilePath: string) =>
+	log: (profilePath: string, fileName = 'LogOutput.log') =>
 		queryOptions({
-			queryKey: profileLogKey(profilePath),
-			queryFn: () => profileWorkflowService.getProfileLog(profilePath),
+			queryKey: profileLogKey(profilePath, fileName),
+			queryFn: () => profileWorkflowService.getProfileLog(profilePath, fileName),
 			enabled: !!profilePath
 		})
 };

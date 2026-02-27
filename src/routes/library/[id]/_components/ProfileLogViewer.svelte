@@ -11,6 +11,8 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
+	import { ScrollArea } from '$lib/components/ui/scroll-area';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { join } from '@tauri-apps/api/path';
 	import { onMount } from 'svelte';
@@ -27,8 +29,12 @@
 
 	let { profile, isRunning }: ProfileLogViewerProps = $props();
 
+	const LOG_FILES = ['LogOutput.log', 'ErrorLog.log'] as const;
+	type LogFileName = (typeof LOG_FILES)[number];
+
 	const queryClient = useQueryClient();
-	const logQuery = createQuery(() => profileQueries.log(profile.path));
+	let activeLogFile = $state<LogFileName>('LogOutput.log');
+	const logQuery = createQuery(() => profileQueries.log(profile.path, activeLogFile));
 
 	let logPath = $state('');
 	let logContainer = $state<HTMLDivElement | null>(null);
@@ -49,7 +55,7 @@
 
 	async function refreshLog() {
 		isViewCleared = false;
-		await queryClient.invalidateQueries({ queryKey: profileLogKey(profile.path) });
+		await queryClient.invalidateQueries({ queryKey: profileLogKey(profile.path, activeLogFile) });
 	}
 
 	onMount(() => {
@@ -66,7 +72,13 @@
 					() => {
 						clearTimeout(debounceTimer);
 						debounceTimer = setTimeout(() => {
-							void queryClient.invalidateQueries({ queryKey: profileLogKey(profile.path) });
+							void Promise.all(
+								LOG_FILES.map((fileName) =>
+									queryClient.invalidateQueries({
+										queryKey: profileLogKey(profile.path, fileName)
+									})
+								)
+							);
 						}, 200);
 					},
 					{ recursive: false }
@@ -81,6 +93,12 @@
 			stopWatching?.();
 		};
 	});
+
+	$effect(() => {
+		void (async () => {
+			logPath = await join(profile.path, 'BepInEx', activeLogFile);
+		})();
+	});
 </script>
 
 <Card.Root class="mt-6 border-border/60 bg-card/50">
@@ -91,7 +109,7 @@
 		</Card.Title>
 		<Card.Description class="space-y-1 text-xs">
 			<p class="font-mono text-muted-foreground/90">{logPath || 'Loading log path...'}</p>
-			<p>Live output from `LogOutput.log` for this profile.</p>
+			<p>Switch between profile log files using tabs.</p>
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="space-y-4">
@@ -143,21 +161,31 @@
 			</Button>
 		</div>
 
-		<div
-			bind:this={logContainer}
-			class="scrollbar-styled h-96 overflow-auto rounded-md border border-border/70 bg-black/70 p-3 font-mono text-xs leading-5"
-		>
-			{#if logQuery.isPending}
-				<p class="text-muted-foreground">Loading logs...</p>
-			{:else if logQuery.isError}
-				<p class="text-red-400">Failed to load logs.</p>
-			{:else if displayedLines.length === 0}
-				<p class="text-muted-foreground">No log output yet.</p>
-			{:else}
-				{#each displayedLines as line (line.id)}
-					<p class="break-words whitespace-pre-wrap {levelToTextClass(line.level)}">{line.text}</p>
-				{/each}
-			{/if}
-		</div>
+		<Tabs.Root bind:value={activeLogFile}>
+			<Tabs.List>
+				<Tabs.Trigger value="LogOutput.log">LogOutput.log</Tabs.Trigger>
+				<Tabs.Trigger value="ErrorLog.log">ErrorLog.log</Tabs.Trigger>
+			</Tabs.List>
+			<Tabs.Content value={activeLogFile} class="mt-3">
+				<ScrollArea
+					viewportRef={logContainer}
+					class="h-96 rounded-md border border-border/70 bg-black/70 p-3 font-mono text-xs leading-5"
+				>
+					{#if logQuery.isPending}
+						<p class="text-muted-foreground">Loading logs...</p>
+					{:else if logQuery.isError}
+						<p class="text-red-400">Failed to load logs.</p>
+					{:else if displayedLines.length === 0}
+						<p class="text-muted-foreground">No log output yet.</p>
+					{:else}
+						{#each displayedLines as line (line.id)}
+							<p class="wrap-break-word whitespace-pre-wrap {levelToTextClass(line.level)}">
+								{line.text}
+							</p>
+						{/each}
+					{/if}
+				</ScrollArea>
+			</Tabs.Content>
+		</Tabs.Root>
 	</Card.Content>
 </Card.Root>

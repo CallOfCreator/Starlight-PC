@@ -147,13 +147,9 @@ class ProfileRepository {
 		await profilePlatformAdapter.removePath(filePath);
 	}
 
-	async getProfileLog(profilePath: string): Promise<string> {
+	async getProfileLog(profilePath: string, fileName = 'LogOutput.log'): Promise<string> {
 		try {
-			const logPath = await profilePlatformAdapter.joinPath(
-				profilePath,
-				'BepInEx',
-				'LogOutput.log'
-			);
+			const logPath = await profilePlatformAdapter.joinPath(profilePath, 'BepInEx', fileName);
 			return await profilePlatformAdapter.readTextFile(logPath);
 		} catch {
 			return '';

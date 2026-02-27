@@ -10,5 +10,5 @@ export const profileDiskFilesKey = (profilePath: string) =>
 	[...diskFilesQueryKey, profilePath] as const;
 export const profileUnifiedModsKey = (profileId: string) =>
 	[...unifiedModsQueryKey, profileId] as const;
-export const profileLogKey = (profilePath: string) =>
-	[...profileLogsQueryKey, profilePath] as const;
+export const profileLogKey = (profilePath: string, fileName: string) =>
+	[...profileLogsQueryKey, profilePath, fileName] as const;
