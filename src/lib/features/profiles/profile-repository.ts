@@ -133,7 +133,9 @@ class ProfileRepository {
 		try {
 			const pluginsPath = await profilePlatformAdapter.joinPath(profilePath, 'BepInEx', 'plugins');
 			const entries = await profilePlatformAdapter.readDirectory(pluginsPath);
-			return entries.map((entry) => entry.name);
+			return entries
+				.filter((entry) => !entry.isDirectory && entry.name.toLowerCase().endsWith('.dll'))
+				.map((entry) => entry.name);
 		} catch {
 			return [];
 		}
