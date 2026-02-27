@@ -12,7 +12,7 @@
 	import { showError, showSuccess } from '$lib/utils/toast';
 	import type { Profile, UnifiedMod } from '$lib/features/profiles/schema';
 	import type { Mod } from '$lib/features/mods/schema';
-	import { profileUnifiedModsKey } from '$lib/features/profiles/profile-keys';
+	import { profileUnifiedModsKey, profilesQueryKey } from '$lib/features/profiles/profile-keys';
 	import { mapModsById } from '$lib/features/mods/ui/mod-query-controller';
 	import { findProfileById } from '$lib/features/profiles/ui/profile-query-controller';
 	import {
@@ -127,6 +127,7 @@
 		enabled: !!profileId && managedModsForUpdates.length > 0,
 		queryFn: () => fetchProfileModUpdates(queryClient, managedModsForUpdates)
 	}));
+	const modUpdatesQueryKey = $derived(['profile-mod-updates', profileId, modUpdatesSignature]);
 	const modUpdateStatuses = $derived((modUpdatesQuery.data ?? {}) as ProfileModUpdatesMap);
 	const displayedMods = $derived(
 		paginateProfileMods(filteredMods, currentPage, PROFILE_MODS_PAGE_SIZE)
@@ -226,6 +227,51 @@
 		modToDelete = null;
 	}
 
+	function applyInstantUpdate(updatedMods: Array<{ modId: string; version: string }>) {
+		if (!profile) return;
+		const nextByModId = new Map(updatedMods.map((mod) => [mod.modId, mod.version]));
+
+		queryClient.setQueryData<Profile[]>(profilesQueryKey, (current) => {
+			if (!current) return current;
+			return current.map((entry) => {
+				if (entry.id !== profile.id) return entry;
+				return {
+					...entry,
+					mods: entry.mods.map((mod) => {
+						const nextVersion = nextByModId.get(mod.mod_id);
+						return nextVersion ? { ...mod, version: nextVersion } : mod;
+					})
+				};
+			});
+		});
+
+		queryClient.setQueryData<UnifiedMod[]>(profileUnifiedModsKey(profile.id), (current) => {
+			if (!current) return current;
+			return current.map((mod) => {
+				if (mod.source !== 'managed') return mod;
+				const nextVersion = nextByModId.get(mod.mod_id);
+				return nextVersion ? { ...mod, version: nextVersion } : mod;
+			});
+		});
+
+		queryClient.setQueryData<ProfileModUpdatesMap>(modUpdatesQueryKey, (current) => {
+			if (!current) return current;
+			const next = { ...current };
+			for (const mod of updatedMods) {
+				const status = next[mod.modId];
+				if (!status) continue;
+				next[mod.modId] = {
+					...status,
+					installedVersion: mod.version,
+					latestVersion: mod.version,
+					isOutdated: false,
+					status: 'ready'
+				};
+			}
+			return next;
+		});
+	}
+
 	async function handleRefreshUpdates() {
 		if (!managedModsForUpdates.length) return;
 		await modUpdatesQuery.refetch();
@@ -243,8 +289,9 @@
 				profilePath: profile.path,
 				mods: [{ modId, version: status.latestVersion }]
 			});
+			applyInstantUpdate([{ modId, version: status.latestVersion }]);
 			showSuccess(`Updated ${modsMap.get(modId)?.name ?? modId}`);
-			await modUpdatesQuery.refetch();
+			void modUpdatesQuery.refetch();
 		} catch (error) {
 			showError(error, 'Update mod');
 		} finally {
@@ -276,8 +323,9 @@
 				profilePath: profile.path,
 				mods: modsToUpdate
 			});
+			applyInstantUpdate(modsToUpdate);
 			showSuccess(`Updated ${modsToUpdate.length} mod${modsToUpdate.length === 1 ? '' : 's'}`);
-			await modUpdatesQuery.refetch();
+			void modUpdatesQuery.refetch();
 		} catch (error) {
 			showError(error, 'Update all mods');
 		} finally {
