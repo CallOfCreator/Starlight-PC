@@ -142,7 +142,10 @@
 	const updatesAvailableCount = $derived(
 		Object.values(modUpdateStatuses).filter((status) => status.isOutdated).length
 	);
-	const isCheckingUpdates = $derived(modUpdatesQuery.isPending || modUpdatesQuery.isFetching);
+	const hasManagedModsForUpdates = $derived(managedModsForUpdates.length > 0);
+	const isCheckingUpdates = $derived(
+		hasManagedModsForUpdates && (modUpdatesQuery.isPending || modUpdatesQuery.isFetching)
+	);
 	const searchPlaceholder = $derived(
 		unifiedModsQuery.data
 			? `Search ${unifiedModsQuery.data.length.toLocaleString()} mods...`
