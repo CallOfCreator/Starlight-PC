@@ -134,14 +134,16 @@
 		description="Manage your profiles and launch the game."
 		icon={Library}
 	>
-		<Button variant="outline" onclick={handleImportProfile} disabled={isImporting}>
-			<Upload class="mr-2 h-4 w-4" />
-			{isImporting ? 'Importing...' : 'Import Profile'}
-		</Button>
-		<Button onclick={() => (createDialogOpen = true)}>
-			<Plus class="mr-2 h-4 w-4" />
-			Create Profile
-		</Button>
+		<div>
+			<Button variant="outline" onclick={handleImportProfile} disabled={isImporting}>
+				<Upload class="mr-2 h-4 w-4" />
+				{isImporting ? 'Importing...' : 'Import Profile'}
+			</Button>
+			<Button onclick={() => (createDialogOpen = true)}>
+				<Plus class="mr-2 h-4 w-4" />
+				Create Profile
+			</Button>
+		</div>
 	</PageHeader>
 	<CreateProfileDialog bind:open={createDialogOpen} />
 
