@@ -16,6 +16,7 @@
 		AlertDialogTitle
 	} from '$lib/components/ui/alert-dialog';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { settingsQueries } from '$lib/features/settings/queries';
 	import { profileQueries } from '$lib/features/profiles/queries';
 	import { launchService } from '$lib/features/profiles/launch-service';
 	import { profileMutations } from '$lib/features/profiles/mutations';
@@ -27,10 +28,14 @@
 
 	const queryClient = useQueryClient();
 	const profilesQuery = createQuery(() => profileQueries.all());
+	const settingsQuery = createQuery(() => settingsQueries.get());
 	const updateLastLaunched = createMutation(() => profileMutations.updateLastLaunched(queryClient));
 	const deleteProfile = createMutation(() => profileMutations.delete(queryClient));
 	const importProfileZip = createMutation(() => profileMutations.importZip(queryClient));
 	const profiles = $derived((profilesQuery.data ?? []) as Profile[]);
+	const allowMultiInstanceLaunch = $derived(
+		(settingsQuery.data?.allow_multi_instance_launch ?? false) as boolean
+	);
 
 	let deleteDialogOpen = $state(false);
 	let createDialogOpen = $state(false);
@@ -151,6 +156,7 @@
 	<LibraryProfilesSection
 		isPending={profilesQuery.isPending}
 		{profiles}
+		{allowMultiInstanceLaunch}
 		onCreateProfile={() => (createDialogOpen = true)}
 		onLaunchProfile={handleLaunchProfile}
 		onDeleteProfile={confirmDeleteProfile}

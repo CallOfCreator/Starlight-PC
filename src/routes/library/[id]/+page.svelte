@@ -6,6 +6,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 
 	import { profileQueries } from '$lib/features/profiles/queries';
+	import { settingsQueries } from '$lib/features/settings/queries';
 	import { profileMutations } from '$lib/features/profiles/mutations';
 	import { modQueries } from '$lib/features/mods/queries';
 	import { gameState } from '$lib/features/profiles/game-state.svelte';
@@ -44,6 +45,7 @@
 	const profileId = $derived(page.params.id ?? '');
 
 	const profilesQuery = createQuery(() => profileQueries.all());
+	const settingsQuery = createQuery(() => settingsQueries.get());
 	const unifiedModsQuery = createQuery(() => ({
 		...profileQueries.unifiedMods(profileId),
 		enabled: !!profileId
@@ -157,11 +159,14 @@
 	);
 	const isRunning = $derived(runningInstanceCount > 0);
 	const installState = $derived(profile ? gameState.getBepInExState(profile.id) : null);
+	const allowMultiInstanceLaunch = $derived(
+		(settingsQuery.data?.allow_multi_instance_launch ?? false) as boolean
+	);
 	const isInstalling = $derived(
 		profile?.bepinex_installed === false || installState?.status === 'installing'
 	);
 	const isDisabled = $derived(isInstalling || isRunning);
-	const isLaunchDisabled = $derived(isInstalling);
+	const isLaunchDisabled = $derived(isInstalling || (isRunning && !allowMultiInstanceLaunch));
 
 	const totalPlayTime = $derived(
 		(profile?.total_play_time ?? 0) + (isRunning ? gameState.getSessionDuration() : 0)
@@ -395,6 +400,7 @@
 			{profile}
 			{isRunning}
 			{runningInstanceCount}
+			{allowMultiInstanceLaunch}
 			{lastLaunched}
 			totalPlayTimeLabel={formatPlayTime(totalPlayTime)}
 			{isDisabled}

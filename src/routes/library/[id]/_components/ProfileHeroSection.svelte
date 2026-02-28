@@ -5,6 +5,7 @@
 		profile: Profile;
 		isRunning: boolean;
 		runningInstanceCount: number;
+		allowMultiInstanceLaunch: boolean;
 		lastLaunched: string;
 		totalPlayTimeLabel: string;
 		isDisabled: boolean;
@@ -27,6 +28,7 @@
 		profile,
 		isRunning,
 		runningInstanceCount,
+		allowMultiInstanceLaunch,
 		lastLaunched,
 		totalPlayTimeLabel,
 		isDisabled,
@@ -38,11 +40,15 @@
 		onOpenRename,
 		onOpenDelete
 	}: ProfileHeroSectionProps = $props();
+
+	const launchLabel = $derived(
+		isRunning ? (allowMultiInstanceLaunch ? 'Launch Another' : 'Running') : 'Launch'
+	);
 </script>
 
 <div class="mb-8 flex flex-col items-start gap-6 md:flex-row md:items-center">
 	<div
-		class="relative flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted/20 md:h-45 md:w-45 {isRunning
+		class="relative flex h-36 w-36 shrink-0 items-center justify-center overflow-visible rounded-lg bg-muted/20 md:h-45 md:w-45 {isRunning
 			? 'ring-2 ring-green-500/50'
 			: ''}"
 	>
@@ -91,7 +97,7 @@
 					Launching...
 				{:else}
 					<Play class="size-5 fill-current" />
-					<span>{isRunning ? 'Launch Another' : 'Launch'}</span>
+					<span>{launchLabel}</span>
 				{/if}
 			</Button>
 

@@ -30,8 +30,14 @@
 	let {
 		profile,
 		onlaunch,
-		ondelete
-	}: { profile: Profile; onlaunch?: () => void; ondelete?: () => void } = $props();
+		ondelete,
+		allowMultiInstanceLaunch = false
+	}: {
+		profile: Profile;
+		onlaunch?: () => void;
+		ondelete?: () => void;
+		allowMultiInstanceLaunch?: boolean;
+	} = $props();
 
 	const queryClient = useQueryClient();
 	const sidebar = getSidebar();
@@ -106,7 +112,10 @@
 	);
 	const hasInstallError = $derived(installState?.status === 'error');
 	const isDisabled = $derived(isInstalling || isRunning);
-	const isLaunchDisabled = $derived(isInstalling);
+	const isLaunchDisabled = $derived(isInstalling || (isRunning && !allowMultiInstanceLaunch));
+	const launchLabel = $derived(
+		isRunning ? (allowMultiInstanceLaunch ? 'Launch Another' : 'Running') : 'Launch'
+	);
 
 	async function handleRetryInstall() {
 		gameState.clearBepInExProgress(profile.id);
@@ -207,7 +216,7 @@
 					disabled={isLaunchDisabled}
 				>
 					<Play class="size-4 fill-current" />
-					<span>{isRunning ? 'Launch Another' : 'Launch'}</span>
+					<span>{launchLabel}</span>
 				</Button>
 
 				<DropdownMenu.Root>
@@ -223,7 +232,7 @@
 						<DropdownMenu.Group>
 							<DropdownMenu.Item onclick={() => onlaunch?.()} disabled={isLaunchDisabled}>
 								<Play class="size-4" />
-								{isRunning ? 'Launch Another' : 'Launch'}
+								{launchLabel}
 							</DropdownMenu.Item>
 							<DropdownMenu.Item onclick={handleOpenFolder}>
 								<FolderOpen class="size-4" />
