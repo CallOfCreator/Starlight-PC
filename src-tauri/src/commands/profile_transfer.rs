@@ -137,6 +137,10 @@ fn add_directory_to_zip(
         }
 
         let relative = path.strip_prefix(root_dir).map_err(|e| e.to_string())?;
+        if should_skip_export_file(relative) {
+            continue;
+        }
+
         let zip_path = to_zip_path(relative)?;
         if zip_path.is_empty() {
             continue;
@@ -269,6 +273,26 @@ fn is_metadata_file(path: &Path) -> bool {
         .and_then(|name| name.to_str())
         .map(|name| name.eq_ignore_ascii_case("metadata.json"))
         .unwrap_or(false)
+}
+
+fn should_skip_export_file(path: &Path) -> bool {
+    let is_log_file = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| {
+            name.eq_ignore_ascii_case("errorlog.log") || name.eq_ignore_ascii_case("logoutput.log")
+        })
+        .unwrap_or(false);
+    if !is_log_file {
+        return false;
+    }
+
+    path.components().any(|component| {
+        matches!(
+            component,
+            Component::Normal(name) if name.to_string_lossy().eq_ignore_ascii_case("bepinex")
+        )
+    })
 }
 
 fn to_zip_path(path: &Path) -> Result<String, String> {
