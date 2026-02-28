@@ -6,13 +6,14 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 	import { modQueries } from '$lib/features/mods/queries';
 	import { mapModsById } from '$lib/features/mods/ui/mod-query-controller';
 	import type { Profile } from '../schema';
 	import type { Mod } from '$lib/features/mods/schema';
 	import { gameState } from '../game-state.svelte';
 	import { profileMutations } from '../mutations';
-	import { showError } from '$lib/utils/toast';
+	import { showError, showSuccess } from '$lib/utils/toast';
 	import { formatPlayTime } from '$lib/utils';
 	import ModDetailsSidebar from '$lib/features/mods/components/ModDetailsSidebar.svelte';
 	import { getSidebar } from '$lib/state/sidebar.svelte';
@@ -40,6 +41,7 @@
 	const retryBepInExInstall = createMutation(() =>
 		profileMutations.retryBepInExInstall(queryClient)
 	);
+	const exportZip = createMutation(() => profileMutations.exportZip());
 
 	async function handleRemoveMod(mod: { id: string; source: 'managed' | 'custom' }) {
 		try {
@@ -76,6 +78,21 @@
 
 	async function handleOpenFolder() {
 		await openProfileFolder(profile.path);
+	}
+
+	async function handleExportProfile() {
+		try {
+			const destination = await saveDialog({
+				title: 'Export Profile ZIP',
+				defaultPath: `${profile.name}.zip`,
+				filters: [{ name: 'ZIP Archive', extensions: ['zip'] }]
+			});
+			if (!destination) return;
+			await exportZip.mutateAsync({ profileId: profile.id, destination });
+			showSuccess(`Exported "${profile.name}"`);
+		} catch (error) {
+			showError(error, 'Export profile');
+		}
 	}
 
 	const lastLaunched = $derived(
@@ -211,6 +228,10 @@
 							<DropdownMenu.Item onclick={handleOpenFolder}>
 								<FolderOpen class="size-4" />
 								Open Folder
+							</DropdownMenu.Item>
+							<DropdownMenu.Item onclick={handleExportProfile}>
+								<Download class="size-4" />
+								Export ZIP
 							</DropdownMenu.Item>
 						</DropdownMenu.Group>
 

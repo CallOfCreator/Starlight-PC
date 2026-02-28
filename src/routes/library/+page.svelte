@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { Library, Plus } from '@lucide/svelte';
+	import { Upload } from '@jis3r/icons';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import CreateProfileDialog from '$lib/features/profiles/components/CreateProfileDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { open as openDialog } from '@tauri-apps/plugin-dialog';
 	import {
 		AlertDialog,
 		AlertDialogAction,
@@ -27,12 +29,14 @@
 	const profilesQuery = createQuery(() => profileQueries.all());
 	const updateLastLaunched = createMutation(() => profileMutations.updateLastLaunched(queryClient));
 	const deleteProfile = createMutation(() => profileMutations.delete(queryClient));
+	const importProfileZip = createMutation(() => profileMutations.importZip(queryClient));
 	const profiles = $derived((profilesQuery.data ?? []) as Profile[]);
 
 	let deleteDialogOpen = $state(false);
 	let createDialogOpen = $state(false);
 	let profileToDelete = $state<Profile | null>(null);
 	let isLaunchingVanilla = $state(false);
+	let isImporting = $state(false);
 
 	async function handleLaunchVanilla() {
 		isLaunchingVanilla = true;
@@ -60,6 +64,26 @@
 		} catch (e) {
 			queryClient.setQueryData(profilesQueryKey, previousProfiles);
 			showError(e);
+		}
+	}
+
+	async function handleImportProfile() {
+		try {
+			isImporting = true;
+			const selected = await openDialog({
+				multiple: false,
+				directory: false,
+				title: 'Import Profile ZIP',
+				filters: [{ name: 'ZIP Archive', extensions: ['zip'] }]
+			});
+			if (!selected) return;
+
+			const imported = await importProfileZip.mutateAsync(selected);
+			showSuccess(`Profile "${imported.name}" imported`);
+		} catch (e) {
+			showError(e, 'Import profile');
+		} finally {
+			isImporting = false;
 		}
 	}
 
@@ -110,10 +134,16 @@
 		description="Manage your profiles and launch the game."
 		icon={Library}
 	>
-		<Button onclick={() => (createDialogOpen = true)}>
-			<Plus class="mr-2 h-4 w-4" />
-			Create Profile
-		</Button>
+		<div>
+			<Button variant="outline" onclick={handleImportProfile} disabled={isImporting}>
+				<Upload class="mr-2 h-4 w-4" />
+				{isImporting ? 'Importing...' : 'Import Profile'}
+			</Button>
+			<Button onclick={() => (createDialogOpen = true)}>
+				<Plus class="mr-2 h-4 w-4" />
+				Create Profile
+			</Button>
+		</div>
 	</PageHeader>
 	<CreateProfileDialog bind:open={createDialogOpen} />
 
