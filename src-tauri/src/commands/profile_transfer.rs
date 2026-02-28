@@ -4,6 +4,7 @@ use serde_json::{Map, Value};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
+use tauri::async_runtime::spawn_blocking;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
@@ -13,7 +14,13 @@ pub struct ProfileImportResult {
 }
 
 #[tauri::command]
-pub fn export_profile_zip(profile_path: String, destination: String) -> Result<(), String> {
+pub async fn export_profile_zip(profile_path: String, destination: String) -> Result<(), String> {
+    spawn_blocking(move || export_profile_zip_blocking(profile_path, destination))
+        .await
+        .map_err(|e| format!("Export task failed: {e}"))?
+}
+
+fn export_profile_zip_blocking(profile_path: String, destination: String) -> Result<(), String> {
     let profile_dir = Path::new(&profile_path);
     if !profile_dir.exists() || !profile_dir.is_dir() {
         return Err(format!(
@@ -57,7 +64,16 @@ pub fn export_profile_zip(profile_path: String, destination: String) -> Result<(
 }
 
 #[tauri::command]
-pub fn import_profile_zip(
+pub async fn import_profile_zip(
+    zip_path: String,
+    destination: String,
+) -> Result<ProfileImportResult, String> {
+    spawn_blocking(move || import_profile_zip_blocking(zip_path, destination))
+        .await
+        .map_err(|e| format!("Import task failed: {e}"))?
+}
+
+fn import_profile_zip_blocking(
     zip_path: String,
     destination: String,
 ) -> Result<ProfileImportResult, String> {
