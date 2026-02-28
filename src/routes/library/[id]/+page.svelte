@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { Debounced, watch } from 'runed';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -55,6 +56,7 @@
 	const renameProfile = createMutation(() => profileMutations.rename(queryClient));
 	const deleteUnifiedMod = createMutation(() => profileMutations.deleteUnifiedMod(queryClient));
 	const installMods = createMutation(() => profileMutations.installMods(queryClient));
+	const exportProfileZip = createMutation(() => profileMutations.exportZip());
 
 	const controller = createProfileDetailController({
 		launchProfile: profileDetailRuntime.launchProfile,
@@ -174,6 +176,24 @@
 			showError(error);
 		} finally {
 			isLaunching = false;
+		}
+	}
+
+	async function handleExportProfile() {
+		if (!profile) return;
+
+		try {
+			const destination = await saveDialog({
+				title: 'Export Profile ZIP',
+				defaultPath: `${profile.name}.zip`,
+				filters: [{ name: 'ZIP Archive', extensions: ['zip'] }]
+			});
+			if (!destination) return;
+
+			await exportProfileZip.mutateAsync({ profileId: profile.id, destination });
+			showSuccess(`Exported "${profile.name}"`);
+		} catch (error) {
+			showError(error, 'Export profile');
 		}
 	}
 
@@ -379,6 +399,7 @@
 			{isLaunching}
 			onLaunch={handleLaunch}
 			onOpenFolder={() => controller.openProfileFolder(profile)}
+			onExport={handleExportProfile}
 			onOpenRename={openRenameDialog}
 			onOpenDelete={() => (deleteDialogOpen = true)}
 		/>

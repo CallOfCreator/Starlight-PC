@@ -12,6 +12,7 @@
 		isLaunching: boolean;
 		onLaunch: () => void | Promise<void>;
 		onOpenFolder: () => void | Promise<void>;
+		onExport: () => void | Promise<void>;
 		onOpenRename: () => void;
 		onOpenDelete: () => void;
 	}
@@ -19,7 +20,7 @@
 
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { BoxIcon, Calendar, Clock, Folder, PencilLineIcon, Play } from '@lucide/svelte';
+	import { BoxIcon, Calendar, Clock, Download, Folder, PencilLineIcon, Play } from '@lucide/svelte';
 	import { Trash2 } from '@jis3r/icons';
 
 	let {
@@ -33,6 +34,7 @@
 		isLaunching,
 		onLaunch,
 		onOpenFolder,
+		onExport,
 		onOpenRename,
 		onOpenDelete
 	}: ProfileHeroSectionProps = $props();
@@ -96,6 +98,11 @@
 			<Button size="lg" variant="outline" class="gap-2" onclick={onOpenFolder}>
 				<Folder class="size-5" />
 				<span>Open Folder</span>
+			</Button>
+
+			<Button size="lg" variant="outline" class="gap-2" onclick={onExport}>
+				<Download class="size-5" />
+				<span>Export ZIP</span>
 			</Button>
 
 			<Button
