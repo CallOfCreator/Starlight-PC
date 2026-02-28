@@ -44,7 +44,7 @@
 			const settings = await settingsService.getSettings();
 			if (!settings.among_us_path) {
 				try {
-					const path = await invoke<string | null>('detect_among_us');
+					const path = await invoke<string | null>('platform_detect_among_us');
 					detectedPath = path ?? '';
 					dialogOpen = true;
 				} catch {

@@ -1,3 +1,4 @@
+use crate::backend::error::{AppError, AppResult};
 use log::{debug, info, warn};
 use std::path::{Path, PathBuf};
 
@@ -8,13 +9,10 @@ const AMONG_US_EXE: &str = "Among Us.exe";
 const EPIC_FOLDER: &str = "Among Us_Data/StreamingAssets/aa/EGS";
 const XBOX_FOLDER: &str = "Among Us_Data/StreamingAssets/aa/Win10";
 
-/// Checks if the directory exists and contains the Among Us executable.
 fn verify_among_us_directory(path: &Path) -> bool {
     path.is_dir() && path.join(AMONG_US_EXE).is_file()
 }
 
-/// Checks if the path is in the WindowsApps folder (Xbox/MS Store installation).
-/// These paths cannot be used for auto-detection since they require special launch handling.
 #[cfg(target_os = "windows")]
 fn is_windows_apps_path(path: &Path) -> bool {
     path.to_string_lossy()
@@ -22,7 +20,6 @@ fn is_windows_apps_path(path: &Path) -> bool {
         .contains("windowsapps")
 }
 
-/// Checks if the directory contains Epic Games indicator (Among Us_Data\StreamingAssets\aa\EGS folder).
 fn is_epic_installation(path: &Path) -> bool {
     path.join(EPIC_FOLDER).is_dir()
 }
@@ -38,7 +35,7 @@ fn parse_registry_icon_value(raw_value: &str) -> Option<PathBuf> {
         .next()?
         .trim()
         .trim_matches(|c| c == '"' || c == '\'')
-        .replace(';', "\\"); // Fix Epic Games' weird path separators
+        .replace(';', "\\");
 
     if path.is_empty() {
         return None;
@@ -61,7 +58,6 @@ fn find_among_us_from_registry() -> Option<PathBuf> {
             .filter(|directory| verify_among_us_directory(directory));
 
         if let Some(dir) = directory {
-            // Skip WindowsApps paths - Xbox installations require manual path selection
             if is_windows_apps_path(&dir) {
                 info!(
                     "Skipping WindowsApps path (Xbox installation): {}",
@@ -80,11 +76,10 @@ fn find_among_us_from_registry() -> Option<PathBuf> {
 fn find_among_us_linux_paths() -> Vec<PathBuf> {
     let mut detected_paths = Vec::new();
     if let Some(home) = home::home_dir() {
-        // Common Steam installation paths on Linux
         let steam_apps = [
             ".local/share/Steam/steamapps/common/Among Us",
             ".steam/steam/steamapps/common/Among Us",
-            ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Among Us", // Flatpak
+            ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Among Us",
         ];
 
         for sub_path in steam_apps {
@@ -96,6 +91,11 @@ fn find_among_us_linux_paths() -> Vec<PathBuf> {
         }
     }
     detected_paths
+}
+
+pub fn detect_among_us_installation() -> AppResult<Option<String>> {
+    let paths = get_among_us_paths();
+    Ok(paths.first().map(|p| p.to_string_lossy().to_string()))
 }
 
 pub fn get_among_us_paths() -> Vec<PathBuf> {
@@ -118,13 +118,14 @@ pub fn get_among_us_paths() -> Vec<PathBuf> {
     Vec::new()
 }
 
-/// Detects the game platform for a given path.
-pub fn detect_platform(path: &str) -> Result<String, String> {
+pub fn detect_game_store(path: &str) -> AppResult<String> {
     let path = PathBuf::from(path);
 
     if !verify_among_us_directory(&path) {
         warn!("Invalid Among Us installation directory: {:?}", path);
-        return Err("Invalid Among Us installation directory".to_string());
+        return Err(AppError::platform(
+            "Invalid Among Us installation directory",
+        ));
     }
 
     let platform = if is_epic_installation(&path) {
@@ -137,4 +138,15 @@ pub fn detect_platform(path: &str) -> Result<String, String> {
 
     debug!("Detected platform '{}' for path: {:?}", platform, path);
     Ok(platform.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::detect_game_store;
+
+    #[test]
+    fn detect_store_rejects_invalid_path() {
+        let result = detect_game_store("/definitely/not/a/real/amoungus/path");
+        assert!(result.is_err());
+    }
 }

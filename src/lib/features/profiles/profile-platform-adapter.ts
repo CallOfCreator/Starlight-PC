@@ -45,15 +45,15 @@ class ProfilePlatformAdapter {
 	}
 
 	installBepInEx(args: { url: string; destination: string; cachePath: string | null }) {
-		return invoke('install_bepinex', args);
+		return invoke('modding_bepinex_install', { args });
 	}
 
 	exportProfileZip(args: { profilePath: string; destination: string }) {
-		return invoke('export_profile_zip', args);
+		return invoke('profiles_export_zip', { args });
 	}
 
 	importProfileZip(args: { zipPath: string; destination: string }) {
-		return invoke<{ metadata_name?: string | null }>('import_profile_zip', args);
+		return invoke<{ metadata_name?: string | null }>('profiles_import_zip', { args });
 	}
 }
 

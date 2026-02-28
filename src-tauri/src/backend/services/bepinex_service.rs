@@ -1,13 +1,12 @@
-//! BepInEx installation and cache management commands
-
-use crate::utils::download::{download_file, extract_zip};
-use log::{debug, error, info, warn};
+use crate::backend::error::AppResult;
+use crate::backend::services::http_download::{download_file, extract_zip};
+use log::{debug, info, warn};
 use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Emitter, Runtime};
 
 #[derive(Clone, serde::Serialize)]
-struct Progress {
+pub struct BepInExProgress {
     stage: String,
     progress: f64,
     message: String,
@@ -16,7 +15,7 @@ struct Progress {
 fn emit<R: Runtime>(app: &AppHandle<R>, stage: &str, progress: f64, message: &str) {
     let _ = app.emit(
         "bepinex-progress",
-        Progress {
+        BepInExProgress {
             stage: stage.to_string(),
             progress,
             message: message.to_string(),
@@ -24,19 +23,15 @@ fn emit<R: Runtime>(app: &AppHandle<R>, stage: &str, progress: f64, message: &st
     );
 }
 
-/// Installs BepInEx from URL or cache to the destination
-#[tauri::command]
 pub async fn install_bepinex<R: Runtime>(
     app: AppHandle<R>,
     url: String,
     destination: String,
     cache_path: Option<String>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     info!("install_bepinex: {} -> {}", url, destination);
-
     let dest = Path::new(&destination);
 
-    // Use cache if available
     if let Some(ref cache) = cache_path {
         let cache_file = Path::new(cache);
         if cache_file.exists() {
@@ -55,7 +50,6 @@ pub async fn install_bepinex<R: Runtime>(
         }
     }
 
-    // Download
     let temp = dest.with_extension("zip.tmp");
     emit(&app, "downloading", 0.0, "Downloading...");
     download_file(&url, &temp, |dl, total| {
@@ -70,7 +64,6 @@ pub async fn install_bepinex<R: Runtime>(
     })
     .await?;
 
-    // Cache if enabled
     if let Some(ref cache) = cache_path {
         let cache_file = Path::new(cache);
         if let Some(parent) = cache_file.parent() {
@@ -83,7 +76,6 @@ pub async fn install_bepinex<R: Runtime>(
         }
     }
 
-    // Extract
     emit(&app, "extracting", 0.0, "Extracting...");
     extract_zip(&temp, dest, |cur, total| {
         emit(
@@ -96,19 +88,14 @@ pub async fn install_bepinex<R: Runtime>(
 
     fs::remove_file(&temp).ok();
     emit(&app, "complete", 100.0, "Complete!");
-    info!("install_bepinex completed");
     Ok(())
 }
 
-/// Downloads BepInEx to cache
-#[tauri::command]
 pub async fn download_bepinex_to_cache<R: Runtime>(
     app: AppHandle<R>,
     url: String,
     cache_path: String,
-) -> Result<(), String> {
-    info!("download_bepinex_to_cache: {}", cache_path);
-
+) -> AppResult<()> {
     let cache_file = Path::new(&cache_path);
 
     emit(&app, "downloading", 0.0, "Downloading...");
@@ -128,22 +115,14 @@ pub async fn download_bepinex_to_cache<R: Runtime>(
     Ok(())
 }
 
-/// Clears BepInEx cache
-#[tauri::command]
-pub async fn clear_bepinex_cache(cache_path: String) -> Result<(), String> {
+pub fn clear_cache(cache_path: String) -> AppResult<()> {
     let cache_file = Path::new(&cache_path);
     if cache_file.exists() {
-        fs::remove_file(cache_file).map_err(|e| {
-            error!("Failed to clear cache: {}", e);
-            e.to_string()
-        })?;
-        info!("Cache cleared: {:?}", cache_file);
+        fs::remove_file(cache_file)?;
     }
     Ok(())
 }
 
-/// Checks if BepInEx cache exists
-#[tauri::command]
-pub async fn check_bepinex_cache_exists(cache_path: String) -> Result<bool, String> {
-    Ok(Path::new(&cache_path).exists())
+pub fn cache_exists(cache_path: String) -> bool {
+    Path::new(&cache_path).exists()
 }
