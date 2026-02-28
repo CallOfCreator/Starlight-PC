@@ -12,9 +12,9 @@ class SettingsService {
 	readonly updateSettings = (updates: Parameters<typeof settingsRepository.update>[0]) =>
 		settingsRepository.update(updates);
 
-	readonly detectAmongUsPath = () => invoke<string | null>('detect_among_us');
+	readonly detectAmongUsPath = () => invoke<string | null>('platform_detect_among_us');
 	readonly detectGamePlatform = (path: string) =>
-		invoke<GamePlatform>('get_game_platform', { path });
+		invoke<GamePlatform>('platform_detect_game_store', { args: { path } });
 
 	async getBepInExCachePath(): Promise<string> {
 		const dataDir = await appDataDir();
@@ -23,8 +23,8 @@ class SettingsService {
 	}
 
 	async checkBepInExCacheExists(): Promise<boolean> {
-		return invoke<boolean>('check_bepinex_cache_exists', {
-			cachePath: await this.getBepInExCachePath()
+		return invoke<boolean>('modding_bepinex_cache_exists', {
+			args: { cachePath: await this.getBepInExCachePath() }
 		});
 	}
 
@@ -35,9 +35,8 @@ class SettingsService {
 			if (onProgress) {
 				unlisten = await listen<BepInExProgress>('bepinex-progress', (e) => onProgress(e.payload));
 			}
-			await invoke('download_bepinex_to_cache', {
-				url,
-				cachePath: await this.getBepInExCachePath()
+			await invoke('modding_bepinex_cache_download', {
+				args: { url, cachePath: await this.getBepInExCachePath() }
 			});
 		} finally {
 			unlisten?.();
@@ -45,7 +44,9 @@ class SettingsService {
 	}
 
 	async clearBepInExCache() {
-		await invoke('clear_bepinex_cache', { cachePath: await this.getBepInExCachePath() });
+		await invoke('modding_bepinex_cache_clear', {
+			args: { cachePath: await this.getBepInExCachePath() }
+		});
 	}
 
 	async openDataFolder() {

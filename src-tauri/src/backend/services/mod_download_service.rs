@@ -1,3 +1,4 @@
+use crate::backend::error::{AppError, AppResult};
 use futures_util::StreamExt;
 use log::{debug, error, info};
 use sha2::{Digest, Sha256};
@@ -31,6 +32,7 @@ fn emit_progress<R: Runtime>(
     let progress = total
         .map(|t| downloaded as f64 / t as f64 * 100.0)
         .unwrap_or(0.0);
+
     if let Err(e) = app.emit(
         "mod-download-progress",
         ModDownloadProgress {
@@ -45,65 +47,43 @@ fn emit_progress<R: Runtime>(
     }
 }
 
-/// Downloads a mod file with progress tracking and SHA-256 checksum verification
-#[tauri::command]
 pub async fn download_mod<R: Runtime>(
     app: AppHandle<R>,
     mod_id: String,
     url: String,
     destination: String,
     expected_checksum: String,
-) -> Result<(), String> {
-    info!("download_mod: {} -> {}", mod_id, destination);
-
+) -> AppResult<()> {
     let dest_path = Path::new(&destination);
-
-    // Create parent directories if needed
     if let Some(parent) = dest_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| {
-            error!("Failed to create directory: {}", e);
-            format!("Failed to create directory: {}", e)
-        })?;
+        fs::create_dir_all(parent)?;
     }
 
-    let tracking_id = get_tracking_id(&app).map_err(|e| {
-        error!("Failed to get tracking ID: {}", e);
-        format!("Failed to get tracking ID: {}", e)
-    })?;
+    let tracking_id = get_tracking_id(&app)?;
 
-    // Build HTTP client with timeouts
     let client = reqwest::Client::builder()
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(REQUEST_TIMEOUT)
-        .build()
-        .map_err(|e| {
-            error!("Failed to create HTTP client: {}", e);
-            e.to_string()
-        })?;
+        .build()?;
 
-    // Start download
     emit_progress(&app, &mod_id, 0, None, "connecting");
 
     let response = client
         .get(&url)
         .header("X-Starlight-ID", &tracking_id)
         .send()
-        .await
-        .map_err(|e| {
-            error!("Download request failed: {}", e);
-            format!("Download failed: {}", e)
-        })?;
+        .await?;
 
     if !response.status().is_success() {
-        let status = response.status();
-        error!("Download failed with status: {}", status);
-        return Err(format!("Download failed: HTTP {}", status));
+        return Err(AppError::other(format!(
+            "Download failed: HTTP {}",
+            response.status()
+        )));
     }
 
     let total_size = response.content_length();
-    debug!("Download size: {:?} bytes", total_size);
+    debug!("Download size: {:?}", total_size);
 
-    // Download with progress tracking and hash computation
     let mut hasher = Sha256::new();
     let mut downloaded: u64 = 0;
     let mut buffer = Vec::new();
@@ -112,66 +92,46 @@ pub async fn download_mod<R: Runtime>(
 
     let mut stream = response.bytes_stream();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| {
-            error!("Download stream error: {}", e);
-            format!("Download failed: {}", e)
-        })?;
-
+        let chunk = chunk?;
         hasher.update(&chunk);
         buffer.extend_from_slice(&chunk);
         downloaded += chunk.len() as u64;
-
         emit_progress(&app, &mod_id, downloaded, total_size, "downloading");
     }
 
-    // Verify checksum
     emit_progress(&app, &mod_id, downloaded, total_size, "verifying");
-    let hash = hasher.finalize();
-    let computed_checksum = format!("{:x}", hash);
-
+    let computed_checksum = format!("{:x}", hasher.finalize());
     if computed_checksum != expected_checksum.to_lowercase() {
-        error!(
+        return Err(AppError::validation(format!(
             "Checksum mismatch: expected {}, got {}",
             expected_checksum, computed_checksum
-        );
-        return Err(format!(
-            "Checksum mismatch: expected {}, got {}",
-            expected_checksum, computed_checksum
-        ));
+        )));
     }
 
-    debug!("Checksum verified: {}", computed_checksum);
-
-    // Write file
     emit_progress(&app, &mod_id, downloaded, total_size, "writing");
-    let mut file = File::create(dest_path).map_err(|e| {
-        error!("Failed to create file: {}", e);
-        format!("Failed to create file: {}", e)
-    })?;
-
-    file.write_all(&buffer).map_err(|e| {
-        error!("Failed to write file: {}", e);
-        format!("Failed to write file: {}", e)
-    })?;
+    let mut file = File::create(dest_path)?;
+    file.write_all(&buffer)?;
 
     emit_progress(&app, &mod_id, downloaded, total_size, "complete");
     info!("Mod download completed: {} -> {:?}", mod_id, dest_path);
-
     Ok(())
 }
 
-fn get_tracking_id<R: Runtime>(app: &AppHandle<R>) -> Result<String, Box<dyn std::error::Error>> {
-    let store = app.store("registry.json")?;
+fn get_tracking_id<R: Runtime>(app: &AppHandle<R>) -> AppResult<String> {
+    let store = app
+        .store("registry.json")
+        .map_err(|e| AppError::state(format!("Failed to load registry store: {e}")))?;
 
-    // Check if tracking_id already exists
     if let Some(id) = store.get("tracking_id")
         && let Some(id_str) = id.as_str()
     {
         return Ok(id_str.to_string());
     }
+
     let new_id = Uuid::new_v4().to_string();
     store.set("tracking_id", new_id.clone());
-    store.save()?;
-
+    store
+        .save()
+        .map_err(|e| AppError::state(format!("Failed to save registry store: {e}")))?;
     Ok(new_id)
 }

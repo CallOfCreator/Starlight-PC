@@ -22,7 +22,7 @@ class LaunchService {
 		}
 
 		info('Fetching Xbox AppUserModelId...');
-		const appId = await invoke<string>('get_xbox_app_id');
+		const appId = await invoke<string>('game_xbox_get_app_id');
 		await settingsService.updateSettings({ xbox_app_id: appId });
 		return appId;
 	}
@@ -75,8 +75,8 @@ class LaunchService {
 				await epicService.ensureLoggedIn();
 			}
 
-			debug('Invoking launch_modded command');
-			await invoke('launch_modded', {
+			debug('Invoking game_launch_modded command');
+			await invoke('game_launch_modded', {
 				args: {
 					gameExe: gameExePath,
 					profileId: profile.id,
@@ -110,14 +110,13 @@ class LaunchService {
 
 		// Prepare launch (copy files, modify INI)
 		info('Preparing Xbox launch...');
-		await invoke('prepare_xbox_launch', {
-			gameDir: gamePath,
-			profilePath: profile.path
+		await invoke('game_xbox_prepare_launch', {
+			args: { gameDir: gamePath, profilePath: profile.path }
 		});
 
 		// Launch the game
 		info('Launching Xbox game...');
-		await invoke('launch_xbox', { appId, profileId: profile.id });
+		await invoke('game_xbox_launch', { args: { appId, profileId: profile.id } });
 		info(`Profile ${profile.name} launched successfully (Xbox)`);
 
 		const settings = await settingsService.getSettings();
@@ -156,10 +155,12 @@ class LaunchService {
 				throw new Error('Among Us.exe not found at configured path');
 			}
 
-			debug('Invoking launch_vanilla command');
-			await invoke('launch_vanilla', {
-				gameExe: gameExePath,
-				platform: settings.game_platform || 'steam'
+			debug('Invoking game_launch_vanilla command');
+			await invoke('game_launch_vanilla', {
+				args: {
+					gameExe: gameExePath,
+					platform: settings.game_platform || 'steam'
+				}
 			});
 			info('Vanilla game launched successfully');
 		} finally {
@@ -178,11 +179,11 @@ class LaunchService {
 
 		// Clean up any modding files first
 		info('Cleaning up Xbox modding files...');
-		await invoke('cleanup_xbox_files', { gameDir: gamePath });
+		await invoke('game_xbox_cleanup', { args: { gameDir: gamePath } });
 
 		// Launch the game
 		info('Launching Xbox game (vanilla)...');
-		await invoke('launch_xbox', { appId, profileId: null });
+		await invoke('game_xbox_launch', { args: { appId, profileId: null } });
 		info('Vanilla game launched successfully (Xbox)');
 	}
 }

@@ -102,11 +102,13 @@ class ModInstallService {
 
 		const destination = await join(pluginsDir, info.file_name);
 
-		await invoke('download_mod', {
-			modId,
-			url: info.download_url,
-			destination,
-			expectedChecksum: info.checksum
+		await invoke('modding_mod_download', {
+			args: {
+				modId,
+				url: info.download_url,
+				destination,
+				expectedChecksum: info.checksum
+			}
 		});
 
 		return info.file_name;

@@ -10,11 +10,11 @@ export type EpicLoginEventHandlers = {
 
 class EpicService {
 	isLoggedIn = () => invoke<boolean>('epic_is_logged_in');
-	login = (code: string) => invoke<void>('epic_login_with_code', { code });
-	loginWithWebview = () => invoke<void>('epic_login_with_webview');
+	login = (code: string) => invoke<void>('epic_login_code', { args: { code } });
+	loginWithWebview = () => invoke<void>('epic_login_webview');
 	logout = () => invoke<void>('epic_logout');
-	getAuthUrl = () => invoke<string>('get_epic_auth_url');
-	tryRestoreSession = () => invoke<boolean>('epic_try_restore_session');
+	getAuthUrl = () => invoke<string>('epic_auth_url');
+	tryRestoreSession = () => invoke<boolean>('epic_session_restore');
 
 	async ensureLoggedIn(): Promise<void> {
 		if (!(await this.tryRestoreSession())) {
