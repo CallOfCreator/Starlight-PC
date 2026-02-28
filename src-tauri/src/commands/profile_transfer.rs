@@ -226,16 +226,28 @@ fn detect_common_root_prefix(archive: &mut ZipArchive<File>) -> Result<Option<St
             continue;
         };
 
-        let mut components = path.components();
-        let Some(Component::Normal(first)) = components.next() else {
-            return Ok(None);
-        };
+        let parts: Vec<String> = path
+            .components()
+            .filter_map(|component| match component {
+                Component::Normal(part) => Some(part.to_string_lossy().to_string()),
+                _ => None,
+            })
+            .collect();
+        if parts.is_empty() {
+            continue;
+        }
 
-        if components.next().is_none() {
+        // A top-level directory entry like "profile/" should not block root-prefix detection.
+        if parts.len() == 1 && entry.is_dir() {
+            continue;
+        }
+
+        // A real top-level file/entry means there's no single-folder root wrapper.
+        if parts.len() == 1 {
             return Ok(None);
         }
 
-        let first_component = first.to_string_lossy().to_string();
+        let first_component = parts[0].clone();
         match &prefix {
             None => prefix = Some(first_component),
             Some(existing) if existing == &first_component => {}
