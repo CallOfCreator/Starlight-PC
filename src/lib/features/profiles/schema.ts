@@ -15,7 +15,7 @@ export const ProfileEntry = type({
 	'bepinex_installed?': 'boolean',
 	'total_play_time?': 'number',
 	'icon_mode?': "'default' | 'custom' | 'mod'",
-	'custom_icon_data_url?': 'string <= 750000',
+	'custom_icon_file?': 'string',
 	'icon_mod_id?': 'string',
 	mods: type(ProfileModEntry.array())
 });
@@ -25,7 +25,7 @@ export type ProfileMod = typeof ProfileModEntry.infer;
 export type ProfileIconMode = NonNullable<Profile['icon_mode']>;
 export type ProfileIconSelection =
 	| { mode: 'default' }
-	| { mode: 'custom'; dataUrl: string }
+	| { mode: 'custom'; sourcePath: string }
 	| { mode: 'mod'; modId: string };
 
 export type UnifiedMod =

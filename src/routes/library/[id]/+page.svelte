@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { save as saveDialog } from '@tauri-apps/plugin-dialog';
+	import { convertFileSrc } from '@tauri-apps/api/core';
+	import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { Debounced, watch } from 'runed';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -98,15 +99,20 @@
 	let deleteModDialogOpen = $state(false);
 	let newProfileName = $state('');
 	let iconModeDraft = $state<'default' | 'custom' | 'mod'>('default');
-	let customIconDataUrlDraft = $state('');
+	let customIconPathDraft = $state('');
+	let customIconPreviewSrcDraft = $state<string | null>(null);
 	let iconModIdDraft = $state('');
 	let iconError = $state('');
 	let isLaunching = $state(false);
-	let isReadingIconFile = $state(false);
 	let renameError = $state('');
 	let isUpdatingAll = $state(false);
 	const updatingModIds = new SvelteSet<string>();
-	let customIconInput = $state<HTMLInputElement | null>(null);
+
+	function buildProfileFilePath(profilePath: string, fileName: string): string {
+		const normalized =
+			profilePath.endsWith('/') || profilePath.endsWith('\\') ? profilePath : `${profilePath}/`;
+		return `${normalized}${fileName}`;
+	}
 
 	watch(
 		() => debouncedSearch.current,
@@ -180,8 +186,8 @@
 	const profileIconSrc = $derived.by(() => {
 		if (!profile) return null;
 
-		if (profile.icon_mode === 'custom' && profile.custom_icon_data_url) {
-			return profile.custom_icon_data_url;
+		if (profile.icon_mode === 'custom' && profile.custom_icon_file) {
+			return convertFileSrc(buildProfileFilePath(profile.path, profile.custom_icon_file));
 		}
 		if (profile.icon_mode === 'mod' && profile.icon_mod_id) {
 			const iconMod = modsMap.get(profile.icon_mod_id);
@@ -264,7 +270,10 @@
 		if (!profile) return;
 
 		iconModeDraft = profile.icon_mode ?? 'default';
-		customIconDataUrlDraft = profile.custom_icon_data_url ?? '';
+		customIconPathDraft = profile.custom_icon_file
+			? buildProfileFilePath(profile.path, profile.custom_icon_file)
+			: '';
+		customIconPreviewSrcDraft = customIconPathDraft ? convertFileSrc(customIconPathDraft) : null;
 		iconModIdDraft = profile.icon_mod_id ?? installedModsWithIcons[0]?.id ?? '';
 		if (iconModeDraft === 'mod' && !iconModIdDraft) {
 			iconModeDraft = 'default';
@@ -281,49 +290,29 @@
 		}
 	}
 
-	function readFileAsDataUrl(file: File): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => {
-				if (typeof reader.result === 'string') {
-					resolve(reader.result);
-					return;
-				}
-				reject(new Error('Failed to read selected image'));
-			};
-			reader.onerror = () => {
-				reject(reader.error ?? new Error('Failed to read selected image'));
-			};
-			reader.readAsDataURL(file);
-		});
+	function clearCustomIconDraft() {
+		customIconPathDraft = '';
+		customIconPreviewSrcDraft = null;
 	}
 
-	async function handleCustomIconInput(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file) return;
-
+	async function handleChooseCustomIcon() {
 		iconError = '';
-		if (!file.type.startsWith('image/')) {
-			iconError = 'Please select an image file';
-			input.value = '';
-			return;
-		}
-		if (file.size > 500 * 1024) {
-			iconError = 'Image must be 500 KB or smaller';
-			input.value = '';
-			return;
-		}
-
-		isReadingIconFile = true;
 		try {
-			customIconDataUrlDraft = await readFileAsDataUrl(file);
+			const selected = await openDialog({
+				multiple: false,
+				directory: false,
+				title: 'Select Profile Icon',
+				filters: [
+					{ name: 'Image Files', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif'] }
+				]
+			});
+			if (!selected || typeof selected !== 'string') return;
+
+			customIconPathDraft = selected;
+			customIconPreviewSrcDraft = convertFileSrc(selected);
 			iconModeDraft = 'custom';
 		} catch (error) {
-			iconError = error instanceof Error ? error.message : 'Failed to read selected image';
-		} finally {
-			isReadingIconFile = false;
-			input.value = '';
+			iconError = error instanceof Error ? error.message : 'Failed to select custom icon';
 		}
 	}
 
@@ -333,14 +322,14 @@
 
 		try {
 			if (iconModeDraft === 'custom') {
-				if (!customIconDataUrlDraft) {
+				if (!customIconPathDraft) {
 					iconError = 'Choose an image for the custom icon';
 					return;
 				}
 
 				await updateProfileIcon.mutateAsync({
 					profileId: profile.id,
-					selection: { mode: 'custom', dataUrl: customIconDataUrlDraft }
+					selection: { mode: 'custom', sourcePath: customIconPathDraft }
 				});
 			} else if (iconModeDraft === 'mod') {
 				if (!iconModIdDraft) {
@@ -632,22 +621,14 @@
 				</div>
 
 				{#if iconModeDraft === 'custom'}
-					<input
-						bind:this={customIconInput}
-						type="file"
-						accept="image/*"
-						class="hidden"
-						onchange={handleCustomIconInput}
-					/>
-
 					<div class="space-y-3">
 						<div class="flex flex-wrap items-center gap-3">
 							<div
 								class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-muted/30"
 							>
-								{#if customIconDataUrlDraft}
+								{#if customIconPreviewSrcDraft}
 									<img
-										src={customIconDataUrlDraft}
+										src={customIconPreviewSrcDraft}
 										alt="Custom icon preview"
 										class="h-full w-full object-cover"
 									/>
@@ -655,25 +636,18 @@
 									<Package class="h-7 w-7 text-muted-foreground/40" />
 								{/if}
 							</div>
-							<Button
-								type="button"
-								variant="outline"
-								disabled={isReadingIconFile}
-								onclick={() => customIconInput?.click()}
-							>
-								{isReadingIconFile
-									? 'Reading...'
-									: customIconDataUrlDraft
-										? 'Change Image'
-										: 'Choose Image'}
+							<Button type="button" variant="outline" onclick={handleChooseCustomIcon}>
+								{customIconPathDraft ? 'Change Image' : 'Choose Image'}
 							</Button>
-							{#if customIconDataUrlDraft}
-								<Button type="button" variant="ghost" onclick={() => (customIconDataUrlDraft = '')}>
-									Clear
-								</Button>
+							{#if customIconPathDraft}
+								<Button type="button" variant="ghost" onclick={clearCustomIconDraft}>Clear</Button>
 							{/if}
 						</div>
-						<p class="text-xs text-muted-foreground">PNG/JPG/GIF/WebP up to 500 KB.</p>
+						{#if customIconPathDraft}
+							<p class="truncate text-xs text-muted-foreground">{customIconPathDraft}</p>
+						{:else}
+							<p class="text-xs text-muted-foreground">PNG/JPG/GIF/WebP/BMP/AVIF image files.</p>
+						{/if}
 					</div>
 				{:else if iconModeDraft === 'mod'}
 					{#if installedModsWithIcons.length === 0}
@@ -716,7 +690,6 @@
 				<Button
 					onclick={handleSaveProfileIcon}
 					disabled={updateProfileIcon.isPending ||
-						isReadingIconFile ||
 						(iconModeDraft === 'mod' && installedModsWithIcons.length === 0)}
 				>
 					{#if updateProfileIcon.isPending}
