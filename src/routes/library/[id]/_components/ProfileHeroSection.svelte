@@ -52,7 +52,7 @@
 
 <div class="mb-8 flex flex-col items-start gap-6 md:flex-row md:items-center">
 	<div
-		class="relative flex h-36 w-36 shrink-0 items-center justify-center overflow-visible rounded-lg bg-muted/20 md:h-45 md:w-45 {isRunning
+		class="group relative flex h-36 w-36 shrink-0 items-center justify-center overflow-visible rounded-lg bg-muted/20 md:h-45 md:w-45 {isRunning
 			? 'ring-2 ring-green-500/50'
 			: ''}"
 	>
@@ -64,7 +64,7 @@
 		<Button
 			variant="secondary"
 			size="icon-sm"
-			class="absolute right-2 bottom-2 rounded-full shadow-sm"
+			class="pointer-events-none absolute right-2 bottom-2 rounded-full opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
 			onclick={onOpenIconEditor}
 			title="Edit profile icon"
 		>

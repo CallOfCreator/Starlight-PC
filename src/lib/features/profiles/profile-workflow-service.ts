@@ -12,7 +12,15 @@ interface ProfileLifecycleHooks {
 }
 
 class ProfileWorkflowService {
-	private readonly maxCustomIconDataUrlLength = 750_000;
+	private readonly customIconExtensions = [
+		'.png',
+		'.jpg',
+		'.jpeg',
+		'.webp',
+		'.gif',
+		'.bmp',
+		'.avif'
+	];
 
 	readonly getProfilesDir = () => profileRepository.getProfilesDir();
 	readonly getProfiles = () => profileRepository.getProfiles();
@@ -87,7 +95,7 @@ class ProfileWorkflowService {
 				bepinex_installed: true,
 				total_play_time: 0,
 				icon_mode: importedMetadata.iconMode ?? 'default',
-				custom_icon_data_url: importedMetadata.customIconDataUrl,
+				custom_icon_file: importedMetadata.customIconFile,
 				icon_mod_id: importedMetadata.iconModId,
 				mods: importedMetadata.mods
 			};
@@ -188,25 +196,32 @@ class ProfileWorkflowService {
 		if (!profile) throw new Error(`Profile '${profileId}' not found`);
 
 		if (selection.mode === 'default') {
+			await this.removeCustomIconFile(profile);
 			profile.icon_mode = 'default';
-			profile.custom_icon_data_url = undefined;
+			profile.custom_icon_file = undefined;
 			profile.icon_mod_id = undefined;
 			await profileRepository.writeMetadata(profile);
 			return;
 		}
 
 		if (selection.mode === 'custom') {
-			const dataUrl = selection.dataUrl.trim();
-			if (!dataUrl) throw new Error('Custom icon image is required');
-			if (dataUrl.length > this.maxCustomIconDataUrlLength) {
-				throw new Error('Custom icon image is too large');
-			}
-			if (!this.isImageDataUrl(dataUrl)) {
-				throw new Error('Custom icon must be a valid image');
+			const sourcePath = selection.sourcePath.trim();
+			if (!sourcePath) throw new Error('Custom icon image is required');
+
+			const extension = this.extractCustomIconExtension(sourcePath);
+			if (!extension) {
+				throw new Error('Custom icon must be a PNG, JPG, WEBP, GIF, BMP, or AVIF image');
 			}
 
+			const iconFileName = `icon${extension}`;
+			const destinationPath = await profilePlatformAdapter.joinPath(profile.path, iconFileName);
+			if (sourcePath !== destinationPath) {
+				await profilePlatformAdapter.copyPath(sourcePath, destinationPath);
+			}
+			await this.removeCustomIconFile(profile, iconFileName);
+
 			profile.icon_mode = 'custom';
-			profile.custom_icon_data_url = dataUrl;
+			profile.custom_icon_file = iconFileName;
 			profile.icon_mod_id = undefined;
 			await profileRepository.writeMetadata(profile);
 			return;
@@ -219,9 +234,10 @@ class ProfileWorkflowService {
 			throw new Error('Selected mod is not installed in this profile');
 		}
 
+		await this.removeCustomIconFile(profile);
 		profile.icon_mode = 'mod';
 		profile.icon_mod_id = modId;
-		profile.custom_icon_data_url = undefined;
+		profile.custom_icon_file = undefined;
 		await profileRepository.writeMetadata(profile);
 	}
 
@@ -392,7 +408,7 @@ class ProfileWorkflowService {
 		name?: string;
 		lastLaunchedAt?: number;
 		iconMode?: Profile['icon_mode'];
-		customIconDataUrl?: string;
+		customIconFile?: string;
 		iconModId?: string;
 		mods: Profile['mods'];
 	}> {
@@ -409,19 +425,28 @@ class ProfileWorkflowService {
 				raw.icon_mode === 'default' || raw.icon_mode === 'custom' || raw.icon_mode === 'mod'
 					? raw.icon_mode
 					: undefined;
-			const customIconDataUrl =
-				typeof raw.custom_icon_data_url === 'string' &&
-				raw.custom_icon_data_url.length <= this.maxCustomIconDataUrlLength &&
-				this.isImageDataUrl(raw.custom_icon_data_url)
-					? raw.custom_icon_data_url
+			const customIconFile =
+				typeof raw.custom_icon_file === 'string' && raw.custom_icon_file.trim()
+					? raw.custom_icon_file.trim()
 					: undefined;
 			const iconModId =
 				typeof raw.icon_mod_id === 'string' && raw.icon_mod_id.trim()
 					? raw.icon_mod_id.trim()
 					: undefined;
 			const mods = this.parseImportedMods(raw.mods);
+			const resolvedCustomIconFile =
+				customIconFile && (await this.customIconFileExists(profilePath, customIconFile))
+					? customIconFile
+					: undefined;
 
-			return { name, lastLaunchedAt, iconMode, customIconDataUrl, iconModId, mods };
+			return {
+				name,
+				lastLaunchedAt,
+				iconMode,
+				customIconFile: resolvedCustomIconFile,
+				iconModId,
+				mods
+			};
 		} catch {
 			return { mods: [] };
 		}
@@ -436,21 +461,46 @@ class ProfileWorkflowService {
 				profile.icon_mode = 'default';
 				profile.icon_mod_id = undefined;
 			}
+		} else if (mode === 'custom') {
+			const iconFile = profile.custom_icon_file;
+			if (typeof iconFile !== 'string' || !iconFile.trim()) {
+				profile.icon_mode = 'default';
+				profile.custom_icon_file = undefined;
+			}
 		}
 
 		if (profile.icon_mode !== 'mod') {
 			profile.icon_mod_id = undefined;
 		}
 		if (profile.icon_mode !== 'custom') {
-			profile.custom_icon_data_url = undefined;
+			profile.custom_icon_file = undefined;
 		}
 		if (!profile.icon_mode) {
 			profile.icon_mode = 'default';
 		}
 	}
 
-	private isImageDataUrl(value: string): boolean {
-		return /^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(value);
+	private extractCustomIconExtension(path: string): string | null {
+		const match = path.match(/\.([a-zA-Z0-9]+)$/);
+		if (!match) return null;
+		const extension = `.${match[1].toLowerCase()}`;
+		return this.customIconExtensions.includes(extension) ? extension : null;
+	}
+
+	private async customIconFileExists(profilePath: string, fileName: string): Promise<boolean> {
+		const iconPath = await profilePlatformAdapter.joinPath(profilePath, fileName);
+		return profilePlatformAdapter.pathExists(iconPath);
+	}
+
+	private async removeCustomIconFile(profile: Profile, keepFileName?: string): Promise<void> {
+		const fileName = profile.custom_icon_file;
+		if (!fileName) return;
+		if (keepFileName && fileName === keepFileName) return;
+
+		const filePath = await profilePlatformAdapter.joinPath(profile.path, fileName);
+		const exists = await profilePlatformAdapter.pathExists(filePath);
+		if (!exists) return;
+		await profilePlatformAdapter.removePath(filePath);
 	}
 
 	private parseImportedMods(rawMods: unknown): Profile['mods'] {
