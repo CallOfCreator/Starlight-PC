@@ -1,11 +1,6 @@
 import type { Profile } from '$lib/features/profiles/schema';
 
-export type InstallTargetSource =
-	| 'manual'
-	| 'install-click'
-	| 'profile-context'
-	| 'launch'
-	| 'fallback';
+export type InstallTargetSource = 'manual' | 'install-click' | 'profile-context' | 'launch';
 
 interface InstallTargetState {
 	profileId: string | null;
@@ -17,15 +12,14 @@ const sourcePriority: Record<InstallTargetSource, number> = {
 	manual: 5,
 	'install-click': 4,
 	'profile-context': 3,
-	launch: 2,
-	fallback: 1
+	launch: 2
 };
 
-let installTarget: InstallTargetState = {
+let installTarget = $state<InstallTargetState>({
 	profileId: null,
 	source: null,
 	updatedAt: 0
-};
+});
 
 function isKnownProfile(profiles: Profile[], profileId: string | null): profileId is string {
 	if (!profileId) return false;
@@ -53,6 +47,8 @@ export function rememberInstallTarget(profileId: string, source: InstallTargetSo
 		return;
 	}
 
+	// Guard for future sources that might share a priority level:
+	// if two different source types have the same priority, the first one wins.
 	if (incomingPriority === currentPriority && source !== current.source) {
 		return;
 	}

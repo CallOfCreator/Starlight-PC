@@ -57,7 +57,6 @@
 	let selectedDependencies = $state<Set<string>>(new Set());
 	let modsBeingInstalled = $state<string[]>([]);
 	let hasInitializedDeps = $state(false);
-	let suppressManualSelectionTracking = $state(false);
 
 	// ============ MUTATIONS ============
 
@@ -89,14 +88,6 @@
 
 	// ============ WATCHES ============
 
-	function setAutoSelectedProfileId(profileId: string) {
-		suppressManualSelectionTracking = true;
-		selectedProfileId = profileId;
-		queueMicrotask(() => {
-			suppressManualSelectionTracking = false;
-		});
-	}
-
 	// Set default profile when profiles load
 	watch(
 		() => profiles,
@@ -104,7 +95,7 @@
 			clearIfMissing(currentProfiles);
 
 			if (currentProfiles.length === 0) {
-				if (selectedProfileId) setAutoSelectedProfileId('');
+				if (selectedProfileId) selectedProfileId = '';
 				return;
 			}
 
@@ -121,20 +112,15 @@
 			const nextProfileId =
 				inferredProfileId ?? mostRecentlyLaunched?.id ?? mostRecentlyCreated?.id ?? '';
 			if (nextProfileId) {
-				setAutoSelectedProfileId(nextProfileId);
+				selectedProfileId = nextProfileId;
 			}
 		}
 	);
 
-	// Persist manual selection for future installs.
-	watch(
-		() => selectedProfileId,
-		(nextProfileId) => {
-			if (suppressManualSelectionTracking || !nextProfileId) return;
-			rememberInstallTarget(nextProfileId, 'manual');
-		},
-		{ lazy: true }
-	);
+	function handleProfileSelectionChange(value: string | string[]) {
+		if (typeof value !== 'string' || !value) return;
+		rememberInstallTarget(value, 'manual');
+	}
 
 	// Initialize selected dependencies when resolved deps change
 	watch(
@@ -197,7 +183,12 @@
 			<!-- Profile Selector -->
 			<div class="space-y-2">
 				<span class="text-xs font-medium text-muted-foreground">Install to Profile</span>
-				<Select.Root bind:value={selectedProfileId} type="single" disabled={isInstalling}>
+				<Select.Root
+					bind:value={selectedProfileId}
+					type="single"
+					disabled={isInstalling}
+					onValueChange={handleProfileSelectionChange}
+				>
 					<Select.Trigger class="w-full">
 						<span class="flex items-center gap-2">
 							<Package class="h-4 w-4 text-muted-foreground" />
