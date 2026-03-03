@@ -2,12 +2,13 @@ import { appDataDir, join } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
-	copyFile,
 	exists,
 	mkdir,
 	readDir,
+	readFile,
 	readTextFile,
 	remove,
+	writeFile,
 	writeTextFile
 } from '@tauri-apps/plugin-fs';
 import type { BepInExProgress } from './schema';
@@ -35,8 +36,12 @@ class ProfilePlatformAdapter {
 		return exists(path);
 	}
 
-	copyPath(fromPath: string, toPath: string) {
-		return copyFile(fromPath, toPath);
+	readBinaryFile(path: string) {
+		return readFile(path);
+	}
+
+	writeBinaryFile(path: string, bytes: Uint8Array) {
+		return writeFile(path, bytes);
 	}
 
 	readDirectory(path: string) {
