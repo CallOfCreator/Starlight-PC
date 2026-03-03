@@ -122,6 +122,10 @@
 		return `${normalized}${fileName}`;
 	}
 
+	function buildCustomIconFilePath(profilePath: string, extension: string): string {
+		return buildProfileFilePath(profilePath, `icon${extension}`);
+	}
+
 	function clearObjectUrl(url: string | null) {
 		if (url) {
 			URL.revokeObjectURL(url);
@@ -248,8 +252,8 @@
 
 		if (!profile) return;
 
-		if (profile.icon_mode === 'custom' && profile.custom_icon_file) {
-			const iconPath = buildProfileFilePath(profile.path, profile.custom_icon_file);
+		if (profile.icon_mode === 'custom' && profile.custom_icon_extension) {
+			const iconPath = buildCustomIconFilePath(profile.path, profile.custom_icon_extension);
 			const blobUrl = await loadLocalImageBlobUrl(iconPath);
 			if (loadVersion !== profileIconLoadVersion) {
 				clearObjectUrl(blobUrl);
@@ -276,7 +280,7 @@
 		() => ({
 			profileId: profile?.id ?? '',
 			mode: profile?.icon_mode ?? 'default',
-			customIconFile: profile?.custom_icon_file ?? '',
+			customIconExtension: profile?.custom_icon_extension ?? '',
 			iconModId: profile?.icon_mod_id ?? '',
 			availableModIcons: installedModsWithIcons.length
 		}),
@@ -359,11 +363,9 @@
 
 		iconModeDraft = profile.icon_mode ?? 'default';
 		customIconBytesDraft = null;
-		customIconExtensionDraft = profile.custom_icon_file
-			? (profile.custom_icon_file.match(/(\.[a-zA-Z0-9]+)$/)?.[1]?.toLowerCase() ?? '')
-			: '';
-		customIconDisplayPathDraft = profile.custom_icon_file
-			? buildProfileFilePath(profile.path, profile.custom_icon_file)
+		customIconExtensionDraft = profile.custom_icon_extension ?? '';
+		customIconDisplayPathDraft = profile.custom_icon_extension
+			? buildCustomIconFilePath(profile.path, profile.custom_icon_extension)
 			: '';
 		setCustomPreviewObjectUrl(null);
 		iconError = '';
@@ -432,7 +434,7 @@
 
 			customIconBytesDraft = bytes;
 			customIconExtensionDraft = extension;
-			customIconDisplayPathDraft = buildProfileFilePath(profile.path, `icon${extension}`);
+			customIconDisplayPathDraft = buildCustomIconFilePath(profile.path, extension);
 			setCustomPreviewObjectUrl(preview);
 			iconModeDraft = 'custom';
 		} catch (error) {
@@ -449,8 +451,8 @@
 				if (!customIconBytesDraft || !customIconExtensionDraft) {
 					const hasExistingCustomIcon =
 						profile.icon_mode === 'custom' &&
-						typeof profile.custom_icon_file === 'string' &&
-						profile.custom_icon_file.length > 0;
+						typeof profile.custom_icon_extension === 'string' &&
+						profile.custom_icon_extension.length > 0;
 					if (!hasExistingCustomIcon) {
 						iconError = 'Choose an image for the custom icon';
 						return;

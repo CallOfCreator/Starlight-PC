@@ -15,7 +15,7 @@ export const ProfileEntry = type({
 	'bepinex_installed?': 'boolean',
 	'total_play_time?': 'number',
 	'icon_mode?': "'default' | 'custom' | 'mod'",
-	'custom_icon_file?': 'string',
+	'custom_icon_extension?': 'string',
 	'icon_mod_id?': 'string',
 	mods: type(ProfileModEntry.array())
 });
