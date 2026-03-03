@@ -205,19 +205,19 @@ class ProfileWorkflowService {
 		}
 
 		if (selection.mode === 'custom') {
-			const sourcePath = selection.sourcePath.trim();
-			if (!sourcePath) throw new Error('Custom icon image is required');
+			const bytes = selection.bytes;
+			if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
+				throw new Error('Custom icon image is required');
+			}
 
-			const extension = this.extractCustomIconExtension(sourcePath);
+			const extension = this.normalizeCustomIconExtension(selection.extension);
 			if (!extension) {
 				throw new Error('Custom icon must be a PNG, JPG, WEBP, GIF, BMP, or AVIF image');
 			}
 
 			const iconFileName = `icon${extension}`;
 			const destinationPath = await profilePlatformAdapter.joinPath(profile.path, iconFileName);
-			if (sourcePath !== destinationPath) {
-				await profilePlatformAdapter.copyPath(sourcePath, destinationPath);
-			}
+			await profilePlatformAdapter.writeBinaryFile(destinationPath, bytes);
 			await this.removeCustomIconFile(profile, iconFileName);
 
 			profile.icon_mode = 'custom';
@@ -480,11 +480,11 @@ class ProfileWorkflowService {
 		}
 	}
 
-	private extractCustomIconExtension(path: string): string | null {
-		const match = path.match(/\.([a-zA-Z0-9]+)$/);
-		if (!match) return null;
-		const extension = `.${match[1].toLowerCase()}`;
-		return this.customIconExtensions.includes(extension) ? extension : null;
+	private normalizeCustomIconExtension(raw: string): string | null {
+		const trimmed = raw.trim().toLowerCase();
+		if (!trimmed) return null;
+		const normalized = trimmed.startsWith('.') ? trimmed : `.${trimmed}`;
+		return this.customIconExtensions.includes(normalized) ? normalized : null;
 	}
 
 	private async customIconFileExists(profilePath: string, fileName: string): Promise<boolean> {

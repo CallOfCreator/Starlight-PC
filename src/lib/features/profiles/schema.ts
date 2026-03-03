@@ -25,7 +25,7 @@ export type ProfileMod = typeof ProfileModEntry.infer;
 export type ProfileIconMode = NonNullable<Profile['icon_mode']>;
 export type ProfileIconSelection =
 	| { mode: 'default' }
-	| { mode: 'custom'; sourcePath: string }
+	| { mode: 'custom'; bytes: Uint8Array; extension: string }
 	| { mode: 'mod'; modId: string };
 
 export type UnifiedMod =
